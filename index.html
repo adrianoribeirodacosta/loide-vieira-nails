@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loide Vieira Nails Studio</title>
+    
+    <!-- Configurações para PWA (Modo Aplicativo) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#b8860b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,14 +18,25 @@
             color: #333;
             text-align: center;
             padding: 60px 20px;
+            margin: 0;
         }
         h1 {
             color: #b8860b;
         }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            max-width: 400px;
+            margin: 20px auto;
+        }
     </style>
 </head>
 <body>
-    <h1>Loide Vieira Nails Studio</h1>
-    <p>Agenda inteligente funcionando com sucesso no celular!</p>
+    <div class="card">
+        <h1>Loide Vieira Nails Studio</h1>
+        <p>Modo Aplicativo Ativo! Sem barras de navegação. 💅✨</p>
+    </div>
 </body>
 </html>
