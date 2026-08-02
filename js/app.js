@@ -68,6 +68,7 @@ function aplicarMascaraTelefone(input) {
     input.value = v;
 }
 
+
 // Salvar ou atualizar cliente no LocalStorage
 function salvarCliente(event) {
     event.preventDefault();
