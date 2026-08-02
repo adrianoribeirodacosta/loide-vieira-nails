@@ -185,7 +185,7 @@ async function importarContatoNativo() {
                     document.getElementById("cliente-nome").value = contato.name[0];
                 }
                 
-                // Varredura inteligente de telefones (evita falhar se o principal não estiver na posição 0)
+                // Varredura inteligente de telefones (evita falhar se o principal não estiver na posição 0) 
                 if (contato.tel && contato.tel.length > 0) {
                     let telefoneEncontrado = "";
                     
