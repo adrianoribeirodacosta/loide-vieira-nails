@@ -167,6 +167,10 @@ function excluirCliente(id) {
 
 // RF001 - Importar da agenda nativa do celular (Web Contacts API)
 async function importarContatoNativo() {
+    // Limpa os campos previamente para evitar dados residuais de importações anteriores
+    document.getElementById("cliente-nome").value = "";
+    document.getElementById("cliente-telefone").value = "";
+
     if ('contacts' in navigator && 'Navigator' in window && 'select' in window.ContactsManager.prototype) {
         try {
             const props = ['name', 'tel'];
@@ -175,12 +179,29 @@ async function importarContatoNativo() {
             
             if (resultado && resultado.length > 0) {
                 const contato = resultado[0];
-                if (contato.name && contato.name[0]) {
+                
+                // Preenche o nome se existir
+                if (contato.name && contato.name.length > 0) {
                     document.getElementById("cliente-nome").value = contato.name[0];
                 }
-                if (contato.tel && contato.tel[0]) {
-                    document.getElementById("cliente-telefone").value = contato.tel[0];
-                    aplicarMascaraTelefone(document.getElementById("cliente-telefone"));
+                
+                // Varredura inteligente de telefones (evita falhar se o principal não estiver na posição 0)
+                if (contato.tel && contato.tel.length > 0) {
+                    let telefoneEncontrado = "";
+                    
+                    // Percorre todos os telefones salvos no contato até achar um válido
+                    for (let t of contato.tel) {
+                        if (t && t.trim() !== "") {
+                            telefoneEncontrado = t;
+                            break; // Encontrou o primeiro válido, pode parar
+                        }
+                    }
+
+                    if (telefoneEncontrado) {
+                        const inputTel = document.getElementById("cliente-telefone");
+                        inputTel.value = telefoneEncontrado;
+                        aplicarMascaraTelefone(inputTel);
+                    }
                 }
             }
         } catch (ex) {
