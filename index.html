@@ -32,19 +32,102 @@
             </div>
         </section>
 
-        <!-- Aba 2: Clientes -->
+       <!-- Aba 2: Clientes -->
         <section id="tab-clientes" class="tab-content">
             <div class="card">
                 <h2>Gerenciamento de Clientes</h2>
                 <p>Cadastros, telefones e recorrências (RF001, RF002 e RF003).</p>
+                
+                <!-- Botão de Importação da Agenda Nativa (RF001) -->
+                <button type="button" id="btn-import-contact" class="btn-secondary" onclick="importarContatoNativo()">
+                    Importar da Agenda do Celular
+                </button>
+
+                <!-- Formulário de Cliente -->
+                <form id="form-cliente" onsubmit="salvarCliente(event)">
+                    <input type="hidden" id="cliente-id">
+                    
+                    <div class="form-group">
+                        <label for="cliente-nome">Nome e Sobrenome:</label>
+                        <input type="text" id="cliente-nome" required placeholder="Ex: Maria Silva">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cliente-telefone">Telefone (WhatsApp):</label>
+                        <input type="tel" id="cliente-telefone" required placeholder="(41) 99999-9999" oninput="aplicarMascaraTelefone(this)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cliente-recorrencia">Regra de Recorrência:</label>
+                        <select id="cliente-recorrencia">
+                            <option value="Nenhuma">Nenhuma / Esporádica</option>
+                            <option value="Semanal">Toda semana (Mesmo dia)</option>
+                            <option value="Quinzenal">A cada 15 dias</option>
+                            <option value="Mensal">Uma vez por mês</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Serviços Padrão / Combo da Cliente:</label>
+                        <!-- Container dinâmico para listar os serviços cadastrados -->
+                        <div id="cliente-servicos-checkboxes" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                            <!-- Preenchido via JavaScript -->
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Salvar Cliente</button>
+                </form>
+            </div>
+
+            <!-- Lista de Clientes Cadastrados -->
+            <div class="card">
+                <h3>Clientes Cadastrados</h3>
+                <div id="lista-clientes" class="lista-container">
+                    <!-- Os clientes cadastrados aparecerão aqui dinamicamente via JS -->
+                </div>
             </div>
         </section>
 
         <!-- Aba 3: Serviços -->
         <section id="tab-servicos" class="tab-content">
             <div class="card">
-                <h2>Tabela de Serviços</h2>
-                <p>Gerenciamento de serviços e valores unitários (RF002 e RF006).</p>
+                <h2>Gerenciamento de Serviços</h2>
+                <p>Cadastro de procedimentos, tempos e valores (RF002 e RF006).</p>
+                
+                <!-- Formulário de Serviço -->
+                <form id="form-servico" onsubmit="salvarServico(event)">
+                    <input type="hidden" id="servico-id">
+                    
+                    <div class="form-group">
+                        <label for="servico-nome">Nome do Serviço:</label>
+                        <input type="text" id="servico-nome" required placeholder="Ex: Manicure Simples">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="servico-tempo">Tempo de Execução (minutos):</label>
+                        <input type="number" id="servico-tempo" required placeholder="Ex: 45" min="5" step="5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="servico-preco-normal">Valor Normal (R$):</label>
+                        <input type="text" id="servico-preco-normal" required placeholder="Ex: 45,00" oninput="aplicarMascaraMoeda(this)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="servico-preco-pacote">Valor para Pacote (R$):</label>
+                        <input type="text" id="servico-preco-pacote" required placeholder="Ex: 35,00" oninput="aplicarMascaraMoeda(this)">
+                    </div>
+
+                    <button type="submit" class="btn-primary">Salvar Serviço</button>
+                </form>
+            </div>
+
+            <!-- Lista de Serviços Cadastrados -->
+            <div class="card">
+                <h3>Serviços Oferecidos</h3>
+                <div id="lista-servicos" class="lista-container">
+                    <!-- Os serviços cadastrados aparecerão aqui dinamicamente via JS -->
+                </div>
             </div>
         </section>
 
