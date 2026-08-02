@@ -43,20 +43,21 @@ function carregarCheckboxesServicosCliente() {
     `).join("");
 }
 
-// Máscara automática para telefone brasileiro (suporta DDI +55 opcional)
+// Máscara automática para telefone brasileiro (trata DDI +55 e números com 10 ou 11 dígitos)
 function aplicarMascaraTelefone(input) {
     let v = input.value.replace(/\D/g, "");
     
-    // Se vier com o DDI 55 na frente e tamanho maior que 11, trata o formato internacional do Brasil
+    // Se vier com o DDI 55 na frente, remove para focar no número nacional
     if (v.startsWith("55") && v.length > 11) {
-        v = v.substring(2); // Remove o 55 temporariamente para formatar o nacional
+        v = v.substring(2);
     }
     
-    v = v.substring(0, 11);
-    
+    // Formatação dinâmica baseada na quantidade real de dígitos (suporta 10 ou 11)
     if (v.length > 10) {
+        // Celular com 9º dígito: (XX) XXXXX-XXXX
         v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
-    } else if (v.length > 5) {
+    } else if (v.length > 6) {
+        // Telefone fixo ou em digitação: (XX) XXXX-XXXX
         v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
     } else if (v.length > 2) {
         v = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
@@ -64,7 +65,6 @@ function aplicarMascaraTelefone(input) {
         v = v.replace(/^(\d*)/, "($1");
     }
     
-    // Se o número original era completo com DDI, opcionalmente podemos reapresentar bonito ou manter limpo o padrão do input
     input.value = v;
 }
 
