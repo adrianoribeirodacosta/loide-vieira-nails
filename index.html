@@ -105,12 +105,17 @@
 
                     <div class="form-group">
                         <label for="servico-tempo">Tempo de Execução (minutos):</label>
-                        <input type="number" id="servico-tempo" required placeholder="Ex: 45" min="5" step="5">
+                        <input type="number" id="servico-tempo" required placeholder="Ex: 40" min="5" step="5">
                     </div>
 
                     <div class="form-group">
                         <label for="servico-preco-normal">Valor Normal (R$):</label>
-                        <input type="text" id="servico-preco-normal" required placeholder="Ex: 45,00" oninput="aplicarMascaraMoeda(this)">
+                        <input type="text" id="servico-preco-normal" required placeholder="Ex: 45,00" oninput="aplicarMascaraMoeda(this)" onblur="calcularPrecoPacote()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="percentualDesconto">Percentual de Desconto para Pacote (%):</label>
+                        <input type="number" id="percentualDesconto" placeholder="Ex: 15" min="0" max="100" step="1" onblur="calcularPrecoPacote()">
                     </div>
 
                     <div class="form-group">

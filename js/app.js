@@ -68,6 +68,106 @@ function aplicarMascaraTelefone(input) {
     input.value = v;
 }
 
+// Adiciona um lançamento no extrato do cliente com limite de histórico
+function adicionarMovimentacaoCliente(clienteId, tipo, valor, descricao) {
+    let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    
+    clientes = clientes.map(c => {
+        if (c.id == clienteId) {
+            // Garante que o saldo existe
+            c.saldoAtual = c.saldoAtual || 0;
+            
+            if (tipo === 'CREDITO') {
+                c.saldoAtual += valor;
+            } else if (tipo === 'DEBITO') {
+                c.saldoAtual -= valor;
+            }
+
+            // Cria o novo lançamento
+            const novoLancamento = {
+                data: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+                tipo: tipo, // 'CREDITO' ou 'DEBITO'
+                valor: valor,
+                descricao: descricao
+            };
+
+            // Inicializa o extrato se não existir
+            c.extrato = c.extrato || [];
+            
+            // Adiciona no início do array
+            c.extrato.unshift(novoLancamento);
+
+            // PERFORMANCE: Mantém no máximo os últimos 20 registros salvos para não inchar o JSON
+            if (c.extrato.length > 20) {
+                c.extrato = c.extrato.slice(0, 20);
+            }
+        }
+        return c;
+    });
+
+    localStorage.setItem("clientes_studio", JSON.stringify(clientes));
+}
+
+function renderizarExtrato(cliente) {
+    const extratoRecente = (cliente.extrato || []).slice(0, 10); // Pega apenas os 10 mais recentes
+    
+    return extratoRecente.map(item => `
+        <div class="extrato-item">
+            <span>${item.data} - ${item.descricao}</span>
+            <strong class="${item.tipo === 'CREDITO' ? 'text-success' : 'text-danger'}">
+                ${item.tipo === 'CREDITO' ? '+' : '-'} R$ ${item.valor}
+            </strong>
+        </div>
+    `).join("");
+}
+
+// Função para adicionar crédito usando o prompt nativo
+function adicionarCreditoPrompt(clienteId) {
+    let valorStr = prompt("Digite o valor do crédito a ser adicionado (Ex: 100.00 ou 100):");
+    
+    if (valorStr === null) return; // Cancelado pela usuária
+    
+    // Substitui vírgula por ponto para aceitar o formato brasileiro caso ela digite "100,00"
+    valorStr = valorStr.replace(',', '.');
+    const valor = parseFloat(valorStr);
+
+    if (isNaN(valor) || valor <= 0) {
+        alert("Por favor, digite um valor válido.");
+        return;
+    }
+
+    const descricao = prompt("Digite uma descrição (Ex: Pagamento de pacote antecipado):") || "Crédito antecipado";
+
+    // Chama a função robusta que criamos antes
+    adicionarMovimentacaoCliente(clienteId, 'CREDITO', valor, descricao);
+    
+    // Recarrega a listagem de clientes na tela
+    carregarClientes();
+    alert("Crédito adicionado com sucesso!");
+}
+
+// Função simples para exibir o extrato (pode usar alert formatado ou um modal leve)
+function verExtrato(clienteId) {
+    const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    const cliente = clientes.find(c => c.id == clienteId);
+
+    if (!cliente || !cliente.extrato || cliente.extrato.length === 0) {
+        alert("Nenhum registro de extrato para este cliente ainda.");
+        return;
+    }
+
+    // Pega os 10 mais recentes
+    const extratoRecente = cliente.extrato.slice(0, 10);
+    
+    let mensagem = `Extrato de ${cliente.nome}\nSaldo Atual: R$ ${(cliente.saldoAtual || 0).toFixed(2).replace('.', ',')}\n\nÚltimas movimentações:\n-----------------------------------\n`;
+    
+    extratoRecente.forEach(item => {
+        const sinal = item.tipo === 'CREDITO' ? '+' : '-';
+        mensagem += `${item.data} | ${item.descricao}\n   -> ${sinal} R$ ${item.valor.toFixed(2).replace('.', ',')} (${item.tipo})\n\n`;
+    });
+
+    alert(mensagem);
+}
 
 // Salvar ou atualizar cliente no LocalStorage
 function salvarCliente(event) {
@@ -107,7 +207,7 @@ function salvarCliente(event) {
     carregarClientes();
 }
 
-// Renderizar lista de clientes na tela seguindo o padrão visual dos cards
+// Renderizar lista de clientes na tela
 function carregarClientes() {
     const container = document.getElementById("lista-clientes");
     if (!container) return;
@@ -121,22 +221,28 @@ function carregarClientes() {
 
     container.innerHTML = clientes.map(c => `
         <div class="item-card">
-            <!-- Linha Superior: Nome (com truncamento) + Badge de Recorrência + Botões -->
-            <div class="item-header">
-                <div class="item-title-tempo">
-                    <strong title="${c.nome}">${c.nome}</strong>
-                    ${c.recorrencia && c.recorrencia !== "Nenhuma" ? `<span class="tempo-badge">🔄 ${c.recorrencia}</span>` : ``}
-                </div>
-                <div class="acoes-card">
+            <!-- Linha 1: Nome do Cliente e Ações -->
+            <div class="item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="font-size: 1.1rem;">${c.nome}</strong>
+                <div class="acoes-card" style="display: flex; gap: 4px;">
+                    <button onclick="adicionarCreditoPrompt(${c.id})" class="btn-ico" title="Adicionar Crédito">💵</button>
+                    <button onclick="verExtrato(${c.id})" class="btn-ico" title="Ver Extrato">📋</button>
                     <button onclick="editarCliente(${c.id})" class="btn-ico" title="Editar">✏️</button>
                     <button onclick="excluirCliente(${c.id})" class="btn-ico" title="Excluir">🗑️</button>
                 </div>
             </div>
             
-            <!-- Linha Inferior: Telefone e Serviços Padrão -->
-            <div class="item-details" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                <span>📱 ${c.telefone}</span>
-                ${c.servicosPadrao && c.servicosPadrao.length > 0 ? `<small style="color: #666;">✨ Serviços: ${c.servicosPadrao.join(", ")}</small>` : ``}
+            <!-- Linha 2: Telefone e Recorrência -->
+            <div class="item-badges" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                <span class="tempo-badge">📞 ${c.telefone}</span>
+                <span class="tempo-badge" style="background-color: #e3f2fd; color: #0d47a1;">🔄 ${c.recorrencia || 'Nenhuma'}</span>
+            </div>
+
+            <!-- Linha 3: Saldo Atual em Destaque -->
+            <div class="item-details" style="border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; color: ${(c.saldoAtual || 0) > 0 ? '#2e7d32' : '#555'};">
+                    💰 Saldo em Conta: R$ ${(c.saldoAtual || 0).toFixed(2).replace('.', ',')}
+                </span>
             </div>
         </div>
     `).join("");
@@ -238,7 +344,35 @@ function aplicarMascaraMoeda(input) {
     input.value = v === "0,00" ? "" : v;
 }
 
-// Salvar ou atualizar serviço no LocalStorage
+// Função para converter string monetária "R$" (ex: "40,00" ou "1.240,50") em float JS
+function moedaParaFloat(valorStr) {
+    if (!valorStr) return 0;
+    // Remove pontos de milhar e substitui vírgula decimal por ponto
+    let limpo = valorStr.replace(/\./g, "").replace(",", ".");
+    return parseFloat(limpo) || 0;
+}
+
+// Função para formatar float em string monetária padrão BR
+function floatParaMoeda(valorFloat) {
+    return valorFloat.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function calcularPrecoPacote() {
+    const inputNormal = document.getElementById('servico-preco-normal').value;
+    const inputPercentual = parseFloat(document.getElementById('percentualDesconto').value) || 0;
+    
+    const valorNormal = moedaParaFloat(inputNormal);
+    
+    if (valorNormal > 0 && inputPercentual > 0) {
+        // Cálculo: valor normal menos a porcentagem de desconto
+        const sugestao = valorNormal - (valorNormal * (inputPercentual / 100));
+        
+        // Atualiza o campo de pacote formatado
+        document.getElementById('servico-preco-pacote').value = floatParaMoeda(sugestao);
+    }
+}
+
+// Salvar ou atualizar serviço no LocalStorage (incluindo o percentual)
 function salvarServico(event) {
     event.preventDefault();
 
@@ -246,13 +380,14 @@ function salvarServico(event) {
     const nome = document.getElementById("servico-nome").value.trim();
     const tempo = document.getElementById("servico-tempo").value.trim();
     const precoNormal = document.getElementById("servico-preco-normal").value.trim();
+    const percentualDesconto = document.getElementById("percentualDesconto").value.trim();
     const precoPacote = document.getElementById("servico-preco-pacote").value.trim();
 
     let servicos = JSON.parse(localStorage.getItem("servicos_studio")) || [];
 
     if (id) {
         // Editando serviço existente
-        servicos = servicos.map(s => s.id == id ? { id, nome, tempo, precoNormal, precoPacote } : s);
+        servicos = servicos.map(s => s.id == id ? { id, nome, tempo, precoNormal, percentualDesconto, precoPacote } : s);
     } else {
         // Criando novo serviço
         const novoServico = {
@@ -260,6 +395,7 @@ function salvarServico(event) {
             nome,
             tempo,
             precoNormal,
+            percentualDesconto,
             precoPacote
         };
         servicos.push(novoServico);
@@ -273,7 +409,7 @@ function salvarServico(event) {
     carregarServicos();
 }
 
-// Renderizar lista de serviços na tela
+// Renderizar lista de serviços na tela (exibindo o percentual se houver)
 function carregarServicos() {
     const container = document.getElementById("lista-servicos");
     if (!container) return;
@@ -287,20 +423,23 @@ function carregarServicos() {
 
     container.innerHTML = servicos.map(s => `
         <div class="item-card">
-            <!-- Linha Superior: Tudo junto na mesma linha horizontal -->
-            <div class="item-header">
-                <div class="item-title-tempo">
-                    <strong>${s.nome}</strong>
-                    <span class="tempo-badge">⏱️ ${s.tempo} min</span>
-                </div>
+            <!-- Linha 1: Nome do Serviço e Ações -->
+            <div class="item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="font-size: 1.1rem;">${s.nome}</strong>
                 <div class="acoes-card">
                     <button onclick="editarServico(${s.id})" class="btn-ico" title="Editar">✏️</button>
                     <button onclick="excluirServico(${s.id})" class="btn-ico" title="Excluir">🗑️</button>
                 </div>
             </div>
             
-            <!-- Linha Inferior: Preços -->
-            <div class="item-details">
+            <!-- Linha 2: Tempo e Badge de Desconto -->
+            <div class="item-badges" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                <span class="tempo-badge">⏱️ ${s.tempo} min</span>
+                ${s.percentualDesconto ? `<span class="tempo-badge" style="background-color: #e3f2fd; color: #0d47a1;">📉 ${s.percentualDesconto}% desc no pacote</span>` : ''}
+            </div>
+
+            <!-- Linha 3: Preços -->
+            <div class="item-details" style="border-top: 1px solid #eee; padding-top: 6px;">
                 <span>🏷️ Normal: R$ ${s.precoNormal}</span>
                 <span class="separator">|</span>
                 <span>📦 Pacote: R$ ${s.precoPacote}</span>
@@ -309,7 +448,7 @@ function carregarServicos() {
     `).join("");
 }
 
-// Preencher formulário para edição de serviço
+// Preencher formulário para edição de serviço (resgatando o percentual)
 function editarServico(id) {
     const servicos = JSON.parse(localStorage.getItem("servicos_studio")) || [];
     const servico = servicos.find(s => s.id == id);
@@ -319,6 +458,7 @@ function editarServico(id) {
         document.getElementById("servico-nome").value = servico.nome;
         document.getElementById("servico-tempo").value = servico.tempo;
         document.getElementById("servico-preco-normal").value = servico.precoNormal;
+        document.getElementById("percentualDesconto").value = servico.percentualDesconto || "";
         document.getElementById("servico-preco-pacote").value = servico.precoPacote;
         
         // Rolar para o topo do formulário de serviços
