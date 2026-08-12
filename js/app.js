@@ -177,6 +177,7 @@ function salvarCliente(event) {
     const nome = document.getElementById("cliente-nome").value.trim();
     const telefone = document.getElementById("cliente-telefone").value.trim();
     const recorrencia = document.getElementById("cliente-recorrencia").value;
+    const clientePacote = document.getElementById("cliente-pacote").checked;
     
     const servicosPadrao = Array.from(document.querySelectorAll('input[name="cliente-servico"]:checked'))
                               .map(el => el.value);
@@ -185,7 +186,20 @@ function salvarCliente(event) {
 
     if (id) {
         // Editando cliente existente
-        clientes = clientes.map(c => c.id == id ? { id: Number(id), nome, telefone, recorrencia, servicosPadrao } : c);
+        clientes = clientes.map(c => {
+            if (c.id == Number(id)) {
+                return {
+                    ...c, // Mantém tudo o que já existe (incluindo saldoAtual, extrato, etc.)
+                    nome,
+                    telefone,
+                    recorrencia,
+                    servicosPadrao,
+                    clientePacote
+                    // Aqui entraremos com o campo de pacote em instantes
+                };
+            }
+            return c;
+        });
     } else {
         // Criando novo cliente
         const novoCliente = {
@@ -193,7 +207,10 @@ function salvarCliente(event) {
             nome,
             telefone,
             recorrencia,
-            servicosPadrao
+            servicosPadrao,
+            clientePacote,
+            saldoAtual: 0, // Inicializa zerado para novos
+            extrato: []    // Histórico vazio para novos
         };
         clientes.push(novoCliente);
     }
@@ -203,6 +220,7 @@ function salvarCliente(event) {
     // Limpar formulário, desmarcar checkboxes e recarregar lista
     document.getElementById("form-cliente").reset();
     document.getElementById("cliente-id").value = "";
+    document.getElementById("cliente-pacote").checked = false; // <--- Adicionar esta linha
     document.querySelectorAll('input[name="cliente-servico"]').forEach(el => el.checked = false);
     carregarClientes();
 }
@@ -236,6 +254,17 @@ function carregarClientes() {
             <div class="item-badges" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
                 <span class="tempo-badge">📞 ${c.telefone}</span>
                 <span class="tempo-badge" style="background-color: #e3f2fd; color: #0d47a1;">🔄 ${c.recorrencia || 'Nenhuma'}</span>
+                ${ c.clientePacote ? '<span class="tempo-badge" style="background-color: #e8f5e9; color: #2e7d32;">📦 Cliente de Pacote</span>' : '' }    
+            </div>
+
+            <!-- Linha dos Serviços Padrão / Combo -->
+            <div class="item-badges" style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Serviços:</span>
+                ${ 
+                    c.servicosPadrao && c.servicosPadrao.length > 0 
+                    ? c.servicosPadrao.map(s => `<span class="tempo-badge" style="background-color: #f3e5f5; color: #4a148c;">✨ ${s}</span>`).join('') 
+                    : '<span style="font-size: 0.85rem; color: #999; font-style: italic;">Nenhum serviço padrão</span>' 
+                }
             </div>
 
             <!-- Linha 3: Saldo Atual em Destaque -->
@@ -258,6 +287,7 @@ function editarCliente(id) {
         document.getElementById("cliente-nome").value = cliente.nome;
         document.getElementById("cliente-telefone").value = cliente.telefone;
         document.getElementById("cliente-recorrencia").value = cliente.recorrencia || "Nenhuma";
+        document.getElementById("cliente-pacote").checked = !!cliente.clientePacote;
         
         // Garantir que os checkboxes estejam carregados e marcar os salvos
         carregarCheckboxesServicosCliente();

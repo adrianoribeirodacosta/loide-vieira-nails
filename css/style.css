@@ -127,8 +127,8 @@ input[type="tel"],
 input[type="number"],
 select {
     width: 100%;
-    background-color: var(--gray-light);
-    border: 1px solid var(--border-color);
+    background-color: #ffffff; /* Fundo totalmente limpo para indicar que está pronto para digitação */
+    border: 1px solid #dcdcdc;  /* Borda sutil e bem definida */
     border-radius: 10px;
     padding: 12px 14px;
     font-size: 0.95rem;
