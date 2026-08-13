@@ -54,7 +54,7 @@ header h1 {
     letter-spacing: -0.3px;
 }
 
-/* Container central com rolagem independente e respiro seguro embaixo */
+/* Container central com rolagem independente e respiro seguro embaixo. */
 .container {
     flex: 1;
     overflow-y: auto;
