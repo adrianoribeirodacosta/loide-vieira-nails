@@ -20,12 +20,15 @@
 }
 
 html, body {
+    width: 100%;
     height: 100%;
+    height: 100dvh; /* Usa a altura dinâmica real da tela do celular */
     margin: 0;
     padding: 0;
     background-color: var(--ios-bg);
     color: var(--text-color);
-    overflow: hidden; /* Trava o scroll global da página inteira */
+    overflow: hidden; /* Trava o scroll de fundo indesejado */
+    position: fixed; /* Evita o "bounce" elástico e redimensionamentos falsos no Android */
 }
 
 body {
@@ -54,7 +57,7 @@ header h1 {
     letter-spacing: -0.3px;
 }
 
-/* Container central com rolagem independente e respiro seguro embaixo. */
+/* Container que rola perfeitamente sem vazar no rodapé */
 .container {
     flex: 1;
     overflow-y: auto;
@@ -63,8 +66,7 @@ header h1 {
     max-width: 600px;
     margin: 0 auto;
     width: 100%;
-    /* O padding-bottom garante que o último card pare exatamente acima da barra inferior */
-    padding-bottom: 110px; 
+    padding-bottom: 120px; /* Garante respiro amplo para o menu fixo */
     box-sizing: border-box;
 }
 

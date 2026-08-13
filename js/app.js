@@ -842,16 +842,28 @@ function toggleMenuLateral() {
 
 // Função para gerenciar a troca de abas (ajuste para o seu padrão atual de abas)
 function mudarAba(nomeAba) {
-    // Esconde todas as abas (exemplo genérico, adapte ao seu seletor de abas)
-    document.querySelectorAll('.conteudo-aba').forEach(el => el.style.display = 'none');
+    // 1. Esconde todas as abas e ativa a escolhida
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
     
-    if (nomeAba === 'avisos') {
-        document.getElementById('aba-avisos').style.display = 'block';
-        renderizarTelaAvisosWhatsApp();
-    } else {
-        // Mostre a aba correspondente (agenda, clientes, etc.)
-        const abaAlvo = document.getElementById(`aba-${nomeAba}`);
-        if (abaAlvo) abaAlvo.style.display = 'block';
+    const abaAlvo = document.getElementById('tab-' + nomeAba);
+    if (abaAlvo) {
+        abaAlvo.classList.add('active');
+    }
+
+    // 2. Sincroniza visualmente os botões do menu inferior (rodapé)
+    document.querySelectorAll('nav.bottom-nav button').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(nomeAba)) {
+            btn.classList.add('active');
+        }
+    });
+
+    // 3. Volta o scroll do container pro topo ao trocar de aba
+    const container = document.querySelector('.container');
+    if (container) {
+        container.scrollTop = 0;
     }
 }
 
