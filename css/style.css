@@ -125,6 +125,8 @@ header h1 {
 input[type="text"],
 input[type="tel"],
 input[type="number"],
+input[type="date"],
+input[type="time"],
 select {
     width: 100%;
     background-color: #ffffff; /* Fundo totalmente limpo para indicar que está pronto para digitação */

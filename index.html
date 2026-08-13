@@ -16,19 +16,100 @@
 
     <!-- Estilos CSS Externos -->
     <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        /* Garante que o corpo e o container ocupem e fluam corretamente sem espaçamentos mortos */
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f4f5f7;
+        }
+        .container {
+            flex: 1;
+            padding-bottom: 85px; /* Altura ideal para o conteúdo não ficar por baixo da barra inferior */
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+
 </head>
 <body>
 
-    <header>
-        <h1>Loide Vieira Nails Studio</h1>
+   <header style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #fff; border-bottom: 0.5px solid var(--border-color); box-sizing: border-box; width: 100%;">
+        <h2 style="font-size: 0.95rem; color: var(--primary-color, #b8860b); margin: 0; white-space: nowrap; font-weight: bold;">
+            Loide Vieira Nails Studio
+        </h2>
+        <button type="button" onclick="toggleMenuLateral()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; padding: 0 4px 0 0; color: var(--primary-color, #b8860b); flex-shrink: 0; line-height: 1; margin-right: 2px;">
+            ☰
+        </button>
     </header>
 
     <div class="container">
         <!-- Aba 1: Agenda / Home -->
         <section id="tab-agenda" class="tab-content active">
+            <!-- Card de Novo Agendamento / Atendimento -->
+            <div class="card">
+                <h2>Novo Agendamento</h2>
+                
+                <form id="form-agendamento" onsubmit="salvarAgendamento(event)">
+                    <input type="hidden" id="agendamento-id">
+
+                    <!-- Seleção da Cliente -->
+                    <div class="form-group">
+                        <label for="agenda-cliente">Cliente</label>
+                        <select id="agenda-cliente" required onchange="aoMudarClienteAgenda()">
+                            <option value="">Selecione a cliente...</option>
+                            <!-- Preenchido via JavaScript -->
+                        </select>
+                    </div>
+
+                    <!-- Data e Horário -->
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="agenda-data">Data</label>
+                            <input type="date" id="agenda-data" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="agenda-horario">Horário</label>
+                            <input type="time" id="agenda-horario" required>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Serviços Dinâmicos do Atendimento -->
+                    <div class="form-group">
+                        <label>Serviços e Valores</label>
+                        <div id="container-servicos-agenda" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+                            <!-- Inseridos dinamicamente (padrões da cliente ou adicionados manualmente) -->
+                        </div>
+                        
+                        <button type="button" class="btn-secondary" onclick="adicionarServicoExtraAgenda()" style="font-size: 0.85rem; padding: 8px; margin-bottom: 0;">
+                            ➕ Adicionar Outro Serviço
+                        </button>
+                    </div>
+
+                    <!-- Resumo e Total em Tempo Real -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--gray-light); padding: 12px; border-radius: 10px; margin-bottom: 14px;">
+                        <span style="font-weight: 600; font-size: 0.95rem;">Total do Atendimento:</span>
+                        <span id="label-total-agenda" style="font-weight: bold; font-size: 1.15rem; color: var(--primary-color);">R$ 0,00</span>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Salvar Agendamento</button>
+                </form>
+            </div>
+
+            <!-- Card de Agendamentos do Dia -->
             <div class="card">
                 <h2>Agenda do Dia & Próximos</h2>
-                <p>Gerenciamento de agendamentos e cronômetros (RF004 e RF005).</p>
+                <div id="lista-agendamentos" class="lista-container">
+                    <!-- Listagem dinâmica -->
+                    <p class="text-muted">Nenhum agendamento para hoje.</p>
+                </div>
             </div>
         </section>
 
@@ -148,6 +229,41 @@
                 <p>Exportação e importação de dados via JSON (RF007 e RF008).</p>
             </div>
         </section>
+    </div>
+
+     <!-- Fundo escurecido e container total da gaveta -->
+    <div id="menu-lateral" onclick="toggleMenuLateral()" style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 99999; opacity: 0; transition: opacity 0.3s ease; overflow: hidden;">
+        
+        <!-- Painel Lateral Deslizante cobrindo 100% da altura da tela -->
+        <div id="painel-gaveta" onclick="event.stopPropagation()" style="position: absolute; right: 0; top: 0; bottom: 0; width: 310px; height: 100%; background: #fff; padding: 24px 16px; box-shadow: -4px 0 16px rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; box-sizing: border-box; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); overflow-y: auto; z-index: 100000;">
+            
+            <!-- Topo -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 4px; flex-shrink: 0;">
+                <span style="font-weight: bold; color: var(--primary-color, #b8860b); font-size: 1.1rem; white-space: nowrap;">Menu do Studio</span>
+                <button onclick="toggleMenuLateral()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #666; padding: 4px; line-height: 1;">✕</button>
+            </div>
+            
+            <!-- Opções -->
+            <button onclick="mudarAba('agenda'); toggleMenuLateral();" style="background: none; border: none; text-align: left; padding: 10px 12px; font-size: 1rem; cursor: pointer; border-radius: 6px; color: #333; width: 100%; display: flex; align-items: center; gap: 14px; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg> Agenda
+            </button>
+
+            <button onclick="mudarAba('clientes'); toggleMenuLateral();" style="background: none; border: none; text-align: left; padding: 10px 12px; font-size: 1rem; cursor: pointer; border-radius: 6px; color: #333; width: 100%; display: flex; align-items: center; gap: 14px; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> Clientes
+            </button>
+
+            <button onclick="mudarAba('servicos'); toggleMenuLateral();" style="background: none; border: none; text-align: left; padding: 10px 12px; font-size: 1rem; cursor: pointer; border-radius: 6px; color: #333; width: 100%; display: flex; align-items: center; gap: 14px; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg> Serviços
+            </button>
+
+            <button onclick="mudarAba('avisos'); toggleMenuLateral();" style="background: #e8f8ec; border: 0.5px solid #c3e6cb; text-align: left; padding: 10px 12px; font-size: 0.95rem; cursor: pointer; border-radius: 6px; color: #155724; font-weight: bold; width: 100%; display: flex; align-items: center; gap: 14px; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                💬 WhatsApp
+            </button>
+
+            <button onclick="mudarAba('backup'); toggleMenuLateral();" style="background: none; border: none; text-align: left; padding: 10px 12px; font-size: 1rem; cursor: pointer; border-radius: 6px; color: #333; width: 100%; display: flex; align-items: center; gap: 14px; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/></svg> Backup
+            </button>
+        </div>
     </div>
 
     <!-- Menu Inferior -->
