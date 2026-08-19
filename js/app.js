@@ -668,7 +668,7 @@ function atualizarTotalAgenda() {
     }
 }
 
-// Salvar Agendamento com Confirmação
+// Salvar Agendamento com Confirmação e Limite de 200 Registros
 function salvarAgendamento(event) {
     event.preventDefault();
 
@@ -709,7 +709,7 @@ function salvarAgendamento(event) {
     const confirmar = confirm(`Deseja realmente confirmar este agendamento no valor total de R$ ${totalAtendimento.toFixed(2).replace('.', ',')}?`);
     if (!confirmar) return;
 
-    const agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
     
     const novoAgendamento = {
         id: Date.now(),
@@ -720,6 +720,11 @@ function salvarAgendamento(event) {
         total: totalAtendimento,
         status: 'Pendente' // Para controle futuro de cronômetro/conclusão
     };
+
+    // Trava de segurança: Se já houver 200 ou mais, remove o mais antigo (o primeiro da lista)
+    if (agendamentos.length >= 200) {
+        agendamentos.shift(); 
+    }
 
     agendamentos.push(novoAgendamento);
     localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
@@ -746,7 +751,25 @@ function carregarAgendamentos() {
         return;
     }
 
-    container.innerHTML = agendamentos.map(ag => {
+    // 1. Definimos o corte de 2 dias atrás para manter a tela limpa e rápida
+    const hoje = new Date();
+    const doisDiasAtras = new Date();
+    doisDiasAtras.setDate(hoje.getDate() - 2);
+
+    // 2. Filtramos os recentes e invertemos (último cadastrado no topo)
+    const agendamentosExibidos = agendamentos
+        .filter(ag => {
+            const dataAg = new Date(ag.data);
+            return dataAg >= doisDiasAtras;
+        })
+        .reverse();
+
+    if (agendamentosExibidos.length === 0) {
+        container.innerHTML = `<p class="text-muted">Sem agendamentos recentes (últimos 2 dias).</p>`;
+        return;
+    }
+
+    container.innerHTML = agendamentosExibidos.map(ag => {
         const clienteObj = clientes.find(c => c.id === ag.clienteId);
         const nomeCliente = clienteObj ? clienteObj.nome : "Cliente não encontrada";
         
@@ -867,68 +890,104 @@ function mudarAba(nomeAba) {
     }
 }
 
-// Filtra agendamentos de hoje e amanhã com base na data atual (2026-08-12)
-function obterAgendamentosAlertas() {
-    const agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+// Renderiza a lista na tela de avisos usando o padrão CSS oficial do studio
+function mostrarAgendaWhatsApp(tipo) {
+    const container = document.getElementById("lista-whatsapp-container");
+    const btnHoje = document.getElementById("btn-hoje");
+    const btnAmanha = document.getElementById("btn-amanha");
     
-    const hojeStr = new Date().toISOString().split('T')[0];
-    
-    const dataAmanha = new Date();
-    dataAmanha.setDate(dataAmanha.getDate() + 1);
-    const amanhaStr = dataAmanha.toISOString().split('T')[0];
+    if (!container || !btnHoje || !btnAmanha) return;
 
-    const hoje = agendamentos.filter(a => a.data === hojeStr);
-    const amanha = agendamentos.filter(a => a.data === amanhaStr);
-
-    return { hoje, amanha };
-}
-
-// Renderiza a lista na tela de avisos
-function renderizarTelaAvisosWhatsApp() {
-    const container = document.getElementById("conteudo-lista-avisos");
-    const { hoje, amanha } = obterAgendamentosAlertas();
-    const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
-
-    function montarBloco(lista, tituloSecao) {
-        if (lista.length === 0) {
-            return `<p style="color: #888; font-size: 0.85rem; margin-bottom: 16px;">Nenhum agendamento para ${tituloSecao}.</p>`;
-        }
-
-        return lista.map(ag => {
-            const clienteObj = clientes.find(c => c.nome === ag.cliente || c.id == ag.clienteId);
-            const telefone = clienteObj ? clienteObj.telefone : "";
-            const telLimpo = telefone.replace(/\D/g, '');
-            
-            // Pega os serviços do agendamento de forma segura
-            const servicosStr = Array.isArray(ag.servicos) 
-                ? ag.servicos.map(s => s.nome || s).join(', ') 
-                : (ag.servicos || 'Serviço');
-            
-            const mensagem = `Olá ${ag.cliente}, passando para lembrar do nosso agendamento ${tituloSecao} (${ag.data}) às ${ag.horario} para: ${servicosStr}. Te espero no estúdio! ✨`;
-            const linkWp = telLimpo ? `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${encodeURIComponent(mensagem)}` : '#';
-
-            return `
-                <div style="background: #fafafc; padding: 12px; border-radius: 8px; border: 0.5px solid var(--border-color); margin-bottom: 10px;">
-                    <div style="font-weight: bold; font-size: 0.95rem; color: #333;">${ag.cliente}</div>
-                    <div style="font-size: 0.85rem; color: #666; margin: 4px 0;">🕒 ${ag.horario} | 📅 ${ag.data}</div>
-                    <div style="font-size: 0.85rem; margin-bottom: 8px; color: #444;">Serviços: ${servicosStr}</div>
-                    ${telLimpo ? `
-                        <a href="${linkWp}" target="_blank" style="display: block; text-align: center; background: #25d366; color: white; padding: 8px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
-                            📲 Enviar WhatsApp (${telefone})
-                        </a>
-                    ` : `
-                        <span style="color: #d9534f; font-size: 0.8rem; font-weight: 500;">⚠️ Cliente sem telefone cadastrado</span>
-                    `}
-                </div>
-            `;
-        }).join('');
+    if (tipo === 'hoje') {
+        btnHoje.className = "btn-primary";
+        btnAmanha.className = "btn-secondary";
+    } else {
+        btnAmanha.className = "btn-primary";
+        btnHoje.className = "btn-secondary";
     }
 
-    container.innerHTML = `
-        <h4 style="color: #555; font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">📅 Lembretes para Hoje</h4>
-        ${montarBloco(hoje, 'hoje')}
+    const agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    
+    function formatarDataLocal(dataObj) {
+        const ano = dataObj.getFullYear();
+        const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+        const dia = String(dataObj.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+
+    const hojeObj = new Date();
+    const hojeStr = formatarDataLocal(hojeObj);
+    
+    const amanhaObj = new Date();
+    amanhaObj.setDate(hojeObj.getDate() + 1);
+    const amanhaStr = formatarDataLocal(amanhaObj);
+
+    const dataAlvo = tipo === 'hoje' ? hojeStr : amanhaStr;
+    const tituloSecao = tipo === 'hoje' ? 'hoje' : 'amanhã';
+    const tituloExibicao = tipo === 'hoje' ? 'de Hoje' : 'para Amanhã';
+
+    const listaFiltrada = agendamentos.filter(a => a.data === dataAlvo);
+
+    if (listaFiltrada.length === 0) {
+        container.innerHTML = `<p class="text-muted">Nenhum agendamento ${tituloExibicao.toLowerCase()}.</p>`;
+        return;
+    }
+
+    // Ícone SVG preenchido em branco para destacar perfeitamente sobre o fundo verde do botão
+    const svgWhatsApp = `<svg viewBox="0 0 24 24" width="26" height="26" fill="#ffffff" style="flex-shrink: 0;"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>`;
+
+    let htmlItens = listaFiltrada.map(ag => {
+        const clienteObj = clientes.find(c => c.id === ag.clienteId || c.nome === ag.cliente);
+        const telefone = clienteObj ? clienteObj.telefone : "";
+        const telLimpo = telefone.replace(/\D/g, '');
         
-        <h4 style="color: #555; font-size: 0.95rem; margin: 16px 0 8px 0; border-bottom: 1px solid #eee; padding-bottom: 4px;">🗓️ Lembretes para Amanhã</h4>
-        ${montarBloco(amanha, 'amanhã')}
+        let telefoneFormatado = telefone;
+        if (telLimpo.length >= 10) {
+            const ddd = telLimpo.substring(0, 2);
+            const parte1 = telLimpo.length === 11 ? telLimpo.substring(2, 7) : telLimpo.substring(2, 6);
+            const parte2 = telLimpo.length === 11 ? telLimpo.substring(7) : telLimpo.substring(6);
+            telefoneFormatado = `(${ddd}) ${parte1}-${parte2}`;
+        }
+        
+        const servicosStr = Array.isArray(ag.servicos) 
+            ? ag.servicos.map(s => s.nome || s).join(', ') 
+            : (ag.servicos || 'Serviço');
+        
+        const nomeClienteExibicao = clienteObj ? clienteObj.nome : (ag.cliente || 'Cliente');
+        
+        const mensagem = `Olá ${nomeClienteExibicao}, passando para lembrar do nosso agendamento ${tituloSecao} (${ag.data.split('-').reverse().join('/')}) às ${ag.horario} para: ${servicosStr}. Te espero no estúdio! ✨`;
+        const linkWp = telLimpo ? `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${encodeURIComponent(mensagem)}` : '#';
+
+        return `
+            <div class="item-card">
+                <div class="item-header">
+                    <strong>${nomeClienteExibicao}</strong>
+                    <span class="tempo-badge">🕒 ${ag.horario} | 📅 ${ag.data.split('-').reverse().join('/')}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #555;">Serviços: ${servicosStr}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 0.5px solid var(--border-color); padding-top: 8px; margin-top: 4px;">
+                    <span style="font-weight: bold; color: #2e7d32; font-size: 0.9rem;">Total: R$ ${ag.total ? ag.total.toFixed(2).replace('.', ',') : '0,00'}</span>
+                </div>
+                ${telLimpo ? `
+                    <a href="${linkWp}" target="_blank" style="display: flex; align-items: center; justify-content: flex-start; gap: 14px; background: #22c55e; color: white; padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 0.9rem; margin-top: 8px; box-shadow: 0 2px 6px rgba(34, 197, 94, 0.18);">
+                        ${svgWhatsApp}
+                        <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
+                            <span>Enviar WhatsApp</span>
+                            <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.95;">${telefoneFormatado}</span>
+                        </div>
+                    </a>
+                ` : `
+                    <span style="color: #d9534f; font-size: 0.8rem; font-weight: 500; margin-top: 6px;">⚠️ Cliente sem telefone cadastrado</span>
+                `}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <h2 style="font-size: 1rem; margin: 16px 0 12px 0;">Registros ${tituloExibicao}</h2>
+        <div class="lista-container">
+            ${htmlItens}
+        </div>
     `;
 }

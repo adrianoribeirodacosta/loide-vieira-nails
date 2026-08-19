@@ -202,6 +202,25 @@
             </div>
         </section>
 
+        <!-- Aba 5: WhatsApp / Disparos -->
+        <section id="tab-avisos" class="tab-content">
+            <div class="card">
+                <h2>Disparos via WhatsApp</h2>
+                <p>Escolha qual agenda deseja conferir e enviar:</p>
+                
+                <!-- Botões de Alternância com suporte a estado ativo -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px; width: 100%;">
+                    <button type="button" id="btn-hoje" class="btn-secondary" onclick="mostrarAgendaWhatsApp('hoje')" style="flex: 1; width: 50%; margin: 0 !important; box-sizing: border-box; text-align: center; white-space: nowrap;">📅 Hoje</button>
+                    <button type="button" id="btn-amanha" class="btn-secondary" onclick="mostrarAgendaWhatsApp('amanha')" style="flex: 1; width: 50%; margin: 0 !important; box-sizing: border-box; text-align: center; white-space: nowrap;">📆 Amanhã</button>
+                </div>
+
+                <!-- Container da listagem -->
+                <div id="lista-whatsapp-container">
+                    <p class="text-muted">Selecione uma das opções acima para carregar os registros.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- Aba 4: Configurações / Backup -->
         <section id="tab-backup" class="tab-content">
             <div class="card">
