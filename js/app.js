@@ -989,5 +989,5 @@ function mostrarAgendaWhatsApp(tipo) {
         <div class="lista-container">
             ${htmlItens}
         </div>
-    `;
+    `;    
 }
