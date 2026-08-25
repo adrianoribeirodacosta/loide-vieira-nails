@@ -874,53 +874,43 @@ function concluirAgendamento(id) {
     const agendamento = agendamentos.find(a => a.id === id);
     if (!agendamento) return;
 
-    const cliente = clientes.find(c => c.id === agendamento.clienteId);
+    const cliente = clientes.find(c => c.id == agendamento.clienteId);
     
-    // Confirmação com contexto claro
-    const ehPacote = cliente ? cliente.clientePacote : false;
+    // Identifica com segurança se é pacote (verifique qual propriedade seu cadastro usa: clientePacote, tipoCliente, etc.)
+    const ehPacote = cliente ? (cliente.clientePacote === true || cliente.tipoCliente === 'pacote' || cliente.pacote === true) : false;
+    
     const msg = ehPacote 
         ? "Esta é uma cliente de PACOTE. O valor será abatido do saldo." 
         : "Esta é uma cliente que paga na hora. O serviço será registrado apenas no histórico.";
 
     if (!confirm(`Confirmar execução de: ${agendamento.servicos.map(s => s.nome).join(', ')}?\n\n${msg}`)) return;
 
-    // Descrição comum para ambos
-    const dataFormatada = agendamento.data.split('-').reverse().join('/');
+    // Formatação da descrição
+    const dataFormatada = agendamento.data ? agendamento.data.split('-').reverse().join('/') : '';
     const desc = `Serviço realizado em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
     const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
 
-    // 1. Tenta usar a função global se ela existir
+    // Executa a movimentação centralizada pela função global (que já desconta o saldo se for DEBITO)
     if (typeof adicionarMovimentacaoCliente === 'function') {
         try {
             adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
         } catch (e) {
             console.warn("Erro ao chamar adicionarMovimentacaoCliente:", e);
         }
+    } else {
+        // Fallback caso a função global não esteja escopada corretamente
+        console.error("Função adicionarMovimentacaoCliente não encontrada!");
     }
 
-    // 2. Blindagem extra: garante direto no objeto do cliente que a movimentação foi gravada
-    if (cliente) {
-        if (!cliente.movimentacoes) cliente.movimentacoes = [];
-        
-        // Evita duplicidade caso a função de cima já tenha gravado
-        const jaExiste = cliente.movimentacoes.some(m => m.descricao === desc && m.data === new Date().toISOString().split('T')[0]);
-        if (!jaExiste) {
-            cliente.movimentacoes.push({
-                data: new Date().toISOString().split('T')[0],
-                tipo: tipoMov,
-                valor: agendamento.total,
-                descricao: desc
-            });
-            localStorage.setItem("clientes_studio", JSON.stringify(clientes));
-        }
-    }
-
-    // Remove da agenda e salva
+    // Remove o agendamento da agenda e salva
     agendamentos = agendamentos.filter(a => a.id !== id);
     localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
     
     alert("Atendimento concluído e registrado com sucesso!");
-    carregarAgendamentos(); // Atualiza a tela
+    
+    // Atualiza as telas se as funções existirem
+    if (typeof carregarAgendamentos === 'function') carregarAgendamentos();
+    if (typeof carregarClientes === 'function') carregarClientes();
 }
 
 function renderizarPainelAlertasWhatsApp() {
