@@ -22,13 +22,11 @@
 html, body {
     width: 100%;
     height: 100%;
-    height: 100dvh; /* Usa a altura dinâmica real da tela do celular */
-    margin: 0;
-    padding: 0;
+    height: 100dvh; /* Altura dinâmica real da tela do celular */
     background-color: var(--ios-bg);
     color: var(--text-color);
     overflow: hidden; /* Trava o scroll de fundo indesejado */
-    position: fixed; /* Evita o "bounce" elástico e redimensionamentos falsos no Android */
+    position: fixed; /* Evita o "bounce" elástico no iOS/Android */
 }
 
 body {
@@ -57,17 +55,15 @@ header h1 {
     letter-spacing: -0.3px;
 }
 
-/* Container que rola perfeitamente sem vazar no rodapé */
+/* --- CONTAINER PRINCIPAL --- */
 .container {
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 16px;
+    padding: 16px 16px 120px 16px; /* Respiro amplo para o menu fixo */
     max-width: 600px;
     margin: 0 auto;
     width: 100%;
-    padding-bottom: 120px; /* Garante respiro amplo para o menu fixo */
-    box-sizing: border-box;
 }
 
 .tab-content {
@@ -150,7 +146,6 @@ select {
 }
 
 input:focus, select:focus {
-    background-color: #ffffff;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
 }
@@ -164,7 +159,7 @@ button {
     padding: 12px 16px;
     font-size: 0.95rem;
     transition: transform 0.1s ease, opacity 0.2s;
-    width: 100%;
+    background: none;
 }
 
 button:active {
@@ -176,6 +171,7 @@ button:active {
     background-color: var(--primary-color);
     color: #ffffff;
     margin-top: 8px;
+    width: 100%;
     box-shadow: 0 4px 12px rgba(184, 134, 11, 0.25);
 }
 
@@ -184,6 +180,7 @@ button:active {
     color: var(--text-color);
     border: 1px solid var(--border-color);
     margin-bottom: 16px;
+    width: 100%;
 }
 
 /* --- LISTAGEM DE CLIENTES & ITENS --- */
@@ -258,12 +255,9 @@ button:active {
 }
 
 .btn-ico {
-    background: transparent;
-    border: none;
     font-size: 1rem;
     padding: 4px 6px;
     border-radius: 6px;
-    cursor: pointer;
 }
 
 .btn-ico:hover {
@@ -296,8 +290,6 @@ nav.bottom-nav {
 }
 
 nav.bottom-nav button {
-    background: none;
-    border: none;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -305,7 +297,6 @@ nav.bottom-nav button {
     font-size: 0.7rem;
     font-weight: 500;
     color: #8e8e93;
-    cursor: pointer;
     padding: 4px;
     flex: 1;
     border-radius: 0;
@@ -322,4 +313,136 @@ nav.bottom-nav button svg {
     width: 24px;
     height: 24px;
     fill: currentColor;
+}
+
+/* --- MINI MODAL DE AÇÕES DO AGENDAMENTO --- */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.modal-content-box {
+    background: var(--card-bg, #fff);
+    width: 100%;
+    max-width: 340px;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.modal-title {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 4px;
+    font-weight: 700;
+}
+
+.modal-subtitle {
+    font-size: 0.85rem;
+    color: #666666;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.modal-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.modal-btn-acao {
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.modal-btn-realizado {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.modal-btn-faltou {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.modal-btn-reagendar-opt {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.modal-bloco-reagendamento {
+    display: none;
+    margin-top: 14px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 12px;
+}
+
+.modal-inputs-flex {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.modal-input-group {
+    flex: 1;
+}
+
+.modal-input-group label {
+    font-size: 0.75rem;
+    color: #555555;
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 600;
+}
+
+.modal-input-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.modal-btn-salvar-reagendamento {
+    background: var(--primary-color);
+    color: #ffffff;
+    border: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.modal-btn-cancelar {
+    background: var(--gray-light);
+    color: #666666;
+    border: 1px solid var(--border-color);
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 14px;
+    cursor: pointer;
+    font-weight: 600;
 }

@@ -29,6 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Módulo de Agenda (Adicionados agora)
     carregarSelectClientesAgenda();
     carregarAgendamentos();
+
+    // Força a inicialização do template padrão se não houver um salvo
+    if (!localStorage.getItem("template_ativo_id")) {
+        definirTemplatePadrao(1);
+    }
+
+    atualizarVisualTemplates(parseInt(localStorage.getItem("template_ativo_id")));
 });
 
 // --- MÓDULO DE CLIENTES (RF001, RF002, RF003) ---
@@ -78,35 +85,36 @@ function aplicarMascaraTelefone(input) {
 }
 
 // Adiciona um lançamento no extrato do cliente com limite de histórico
-function adicionarMovimentacaoCliente(clienteId, tipo, valor, descricao) {
+function adicionarMovimentacaoCliente(clientId, tipo, valor, descricao) {
     let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
     
     clientes = clientes.map(c => {
-        if (c.id == clienteId) {
+        if (c.id == clientId) {
             // Garante que o saldo existe
             c.saldoAtual = c.saldoAtual || 0;
-            
+
             if (tipo === 'CREDITO') {
                 c.saldoAtual += valor;
             } else if (tipo === 'DEBITO') {
                 c.saldoAtual -= valor;
-            }
+            } 
+            // Se for 'HISTORICO', apenas registra no extrato sem alterar o saldo financeiro
 
             // Cria o novo lançamento
             const novoLancamento = {
                 data: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-                tipo: tipo, // 'CREDITO' ou 'DEBITO'
+                tipo: tipo, // 'CREDITO', 'DEBITO' ou 'HISTORICO'
                 valor: valor,
                 descricao: descricao
             };
 
             // Inicializa o extrato se não existir
             c.extrato = c.extrato || [];
-            
+
             // Adiciona no início do array
             c.extrato.unshift(novoLancamento);
 
-            // PERFORMANCE: Mantém no máximo os últimos 20 registros salvos para não inchar o JSON
+            // PERFORMANCE: Mantém no máximo os últimos 20 registros salvos
             if (c.extrato.length > 20) {
                 c.extrato = c.extrato.slice(0, 20);
             }
@@ -738,7 +746,6 @@ function salvarAgendamento(event) {
     carregarAgendamentos();
 }
 
-// Função placeholder para listar agendamentos salvos (evita erro se chamada)
 function carregarAgendamentos() {
     const container = document.getElementById("lista-agendamentos");
     if (!container) return;
@@ -746,50 +753,93 @@ function carregarAgendamentos() {
     const agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
     const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
 
+    const avisoFiltro = document.getElementById("aviso-filtro-ativo");
+
     if (agendamentos.length === 0) {
         container.innerHTML = `<p class="text-muted">Nenhum agendamento cadastrado ainda.</p>`;
+        if (avisoFiltro) avisoFiltro.style.display = "none";
         return;
     }
 
-    // 1. Definimos o corte de 2 dias atrás para manter a tela limpa e rápida
-    const hoje = new Date();
-    const doisDiasAtras = new Date();
-    doisDiasAtras.setDate(hoje.getDate() - 2);
+    // Pega o valor do input de filtro de data
+    const inputFiltro = document.getElementById("filtro-data-agenda");
+    const dataFiltroSelecionada = inputFiltro ? inputFiltro.value : "";
 
-    // 2. Filtramos os recentes e invertemos (último cadastrado no topo)
-    const agendamentosExibidos = agendamentos
-        .filter(ag => {
-            const dataAg = new Date(ag.data);
-            return dataAg >= doisDiasAtras;
-        })
-        .reverse();
+    let agendamentosExibidos = [...agendamentos];
+
+    if (dataFiltroSelecionada) {
+        // Se houver uma data selecionada, filtra estritamente por ela
+        agendamentosExibidos = agendamentosExibidos.filter(ag => ag.data === dataFiltroSelecionada);
+        
+        // Mostra o aviso visual de segurança para a gestora
+        if (avisoFiltro) {
+            avisoFiltro.style.display = "flex";
+            const dataFmt = dataFiltroSelecionada.split('-').reverse().join('/');
+            const spanData = document.getElementById("label-data-filtrada");
+            if (spanData) spanData.textContent = dataFmt;
+        }
+    } else {
+        // Se não houver filtro, aplica o corte padrão de 7 dias para manter a tela limpa
+        const hoje = new Date();
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(hoje.getDate() - 7);
+
+        agendamentosExibidos = agendamentosExibidos.filter(ag => {
+            const dataAg = new Date(ag.data + 'T00:00:00');
+            return dataAg >= seteDiasAtras;
+        });
+
+        // Oculta o aviso de filtro ativo
+        if (avisoFiltro) avisoFiltro.style.display = "none";
+    }
+
+    // Inverte para o último cadastrado/recente ficar no topo
+    agendamentosExibidos.reverse();
 
     if (agendamentosExibidos.length === 0) {
-        container.innerHTML = `<p class="text-muted">Sem agendamentos recentes (últimos 2 dias).</p>`;
+        const msgVazia = dataFiltroSelecionada 
+            ? `Nenhum agendamento encontrado para a data ${dataFiltroSelecionada.split('-').reverse().join('/')}.` 
+            : "Sem agendamentos recentes (últimos 7 dias).";
+        
+        container.innerHTML = `<p class="text-muted">${msgVazia}</p>`;
         return;
     }
 
     container.innerHTML = agendamentosExibidos.map(ag => {
         const clienteObj = clientes.find(c => c.id === ag.clienteId);
         const nomeCliente = clienteObj ? clienteObj.nome : "Cliente não encontrada";
+        const dataFormatadaExibicao = ag.data.split('-').reverse().join('/');
         
         return `
             <div class="item-card">
-                <div class="item-header">
-                    <strong>${nomeCliente}</strong>
-                    <span class="tempo-badge" style="background-color: #fff3e5; color: #b8860b;">📅 ${ag.data} às ${ag.horario}</span>
-                </div>
-                <div class="item-badges" style="font-size: 0.85rem; color: #555;">
-                    Serviços: ${ag.servicos.map(s => `${s.nome} (R$ ${s.preco.toFixed(2).replace('.', ',')})`).join(', ')}
-                </div>
-                <div class="item-details" style="border-top: 1px solid #eee; padding-top: 6px; justify-content: space-between;">
-                    <span style="font-weight: bold; color: #2e7d32;">Total: R$ ${ag.total.toFixed(2).replace('.', ',')}</span>
-                    <button onclick="excluirAgendamento(${ag.id})" class="btn-ico" title="Excluir">🗑️</button>
+                <div>
+                    <div class="item-header">
+                        <strong>${nomeCliente}</strong>
+                        <span class="tempo-badge" style="background-color: #fff3e5; color: #b8860b;">📅 ${dataFormatadaExibicao} às ${ag.horario}</span>
+                    </div>
+                    <div class="item-badges" style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">
+                        Serviços: ${ag.servicos.map(s => `${s.nome} (R$ ${s.preco.toFixed(2).replace('.', ',')})`).join(', ')}
+                    </div>
+                    <div class="item-details" style="border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #2e7d32;">Total: R$ ${ag.total.toFixed(2).replace('.', ',')}</span>
+                        <div class="acoes-card" style="display: flex; gap: 4px;">
+                            <button type="button" class="btn-ico" onclick="abrirModalAcao(${ag.id}, '${nomeCliente.replace(/'/g, "\\'")}', '${ag.servicos.map(s => s.nome).join(', ')}')" title="Gerenciar Atendimento">✅</button>
+                            <button type="button" class="btn-ico" onclick="excluirAgendamento(${ag.id})" title="Excluir">🗑️</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
     }).join("");
 }
+
+// Função auxiliar para limpar o filtro rapidamente
+function limparFiltroAgenda() {
+    const inputFiltro = document.getElementById("filtro-data-agenda");
+    if (inputFiltro) inputFiltro.value = "";
+    carregarAgendamentos();
+}
+
 
 function excluirAgendamento(id) {
     if (!confirm("Deseja excluir este agendamento?")) return;
@@ -817,6 +867,62 @@ function obterAgendamentosAlertas() {
     return { hoje: alertasDoDia, amanha: alertasAmanha };
 }
 
+function concluirAgendamento(id) {
+    let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    
+    const agendamento = agendamentos.find(a => a.id === id);
+    if (!agendamento) return;
+
+    const cliente = clientes.find(c => c.id === agendamento.clienteId);
+    
+    // Confirmação com contexto claro
+    const ehPacote = cliente ? cliente.clientePacote : false;
+    const msg = ehPacote 
+        ? "Esta é uma cliente de PACOTE. O valor será abatido do saldo." 
+        : "Esta é uma cliente que paga na hora. O serviço será registrado apenas no histórico.";
+
+    if (!confirm(`Confirmar execução de: ${agendamento.servicos.map(s => s.nome).join(', ')}?\n\n${msg}`)) return;
+
+    // Descrição comum para ambos
+    const dataFormatada = agendamento.data.split('-').reverse().join('/');
+    const desc = `Serviço realizado em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
+    const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
+
+    // 1. Tenta usar a função global se ela existir
+    if (typeof adicionarMovimentacaoCliente === 'function') {
+        try {
+            adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
+        } catch (e) {
+            console.warn("Erro ao chamar adicionarMovimentacaoCliente:", e);
+        }
+    }
+
+    // 2. Blindagem extra: garante direto no objeto do cliente que a movimentação foi gravada
+    if (cliente) {
+        if (!cliente.movimentacoes) cliente.movimentacoes = [];
+        
+        // Evita duplicidade caso a função de cima já tenha gravado
+        const jaExiste = cliente.movimentacoes.some(m => m.descricao === desc && m.data === new Date().toISOString().split('T')[0]);
+        if (!jaExiste) {
+            cliente.movimentacoes.push({
+                data: new Date().toISOString().split('T')[0],
+                tipo: tipoMov,
+                valor: agendamento.total,
+                descricao: desc
+            });
+            localStorage.setItem("clientes_studio", JSON.stringify(clientes));
+        }
+    }
+
+    // Remove da agenda e salva
+    agendamentos = agendamentos.filter(a => a.id !== id);
+    localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+    
+    alert("Atendimento concluído e registrado com sucesso!");
+    carregarAgendamentos(); // Atualiza a tela
+}
+
 function renderizarPainelAlertasWhatsApp() {
     const { hoje, amanha } = obterAgendamentosAlertas();
     const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
@@ -827,18 +933,77 @@ function renderizarPainelAlertasWhatsApp() {
         return cliente ? cliente.telefone : "";
     }
 
-    // Exemplo de como montar a mensagem com link direto do WhatsApp (wa.me)
-    function gerarLinkWhatsApp(telefone, nomeCliente, data, horario, servicos) {
-        // Remove tudo que não for número do telefone
-        const telLimpo = telefone.replace(/\D/g, '');
-        const mensagem = `Olá ${nomeCliente}, passando para lembrar do nosso agendamento amanhã (${data}) às ${horario} para o(s) serviço(s): ${servicos}. Te espero no estúdio! ✨`;
-        
-        return `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${encodeURIComponent(mensagem)}`;
-    }
-
     // Aqui você injeta esses dados no HTML da sua interface de lembretes/alertas
     console.log("Agendamentos para hoje:", hoje);
     console.log("Agendamentos para amanhã:", amanha);
+}
+
+// Função adaptada para gerar o link do WhatsApp usando o template salvo da cliente
+function gerarLinkWhatsapp(telefone, nomeCliente, data, horario, servicos) {
+    const tellimpo = telefone ? telefone.replace(/\D/g, '') : '';
+    
+    // Pega rigorosamente o template salvo no localStorage
+    let templateSalvo = localStorage.getItem("template_ativo_texto");
+    
+    // Se por acaso estiver vazio, usa um fallback seguro
+    if (!templateSalvo) {
+        templateSalvo = "Oi ${cliente}! Passando pra lembrar que dia ${data} às ${horario}, você tem horário comigo. 😊\nServiços: ${servicos}";
+    }
+
+    // Substitui as variáveis com segurança
+    const mensagem = templateSalvo
+        .replace(/\$\{cliente\}/g, nomeCliente || "Cliente")
+        .replace(/\$\{data\}/g, data || "")
+        .replace(/\$\{horario\}/g, horario || "")
+        .replace(/\$\{servicos\}/g, servicos || "");
+
+    return `https://api.whatsapp.com/send?phone=55${tellimpo}&text=${encodeURIComponent(mensagem)}`;
+}
+
+// Função para definir e salvar o template padrão escolhido
+function definirTemplatePadrao(idTemplate) {
+    let textoTemplate = "";
+
+    if (idTemplate === 1) {
+        textoTemplate = `Oi \${cliente}! Passando pra lembrar que dia \${data} às \${horario}, você tem horário comigo. 😊\n• Chegue 10 minutos antes do horário para uma melhor experiência.\n• Em caso de cancelamento, deve ser avisado com no mínimo 24h de antecedência.\n\nServiços: \${servicos}\n\nJá estou preparando tudo pra você. Até lá! ✨`;
+    } else if (idTemplate === 2) {
+        textoTemplate = `Olá \${cliente}! Seu horário está confirmado para \${horario}.\nOs serviços agendados são: \${servicos}\n\nPor favor, não se atrase, pois é reservado um tempo único para cada cliente!\nAtenciosamente, Loide Vieira Nails Studio`;
+    }
+
+    // Salva a escolha e o texto no localStorage
+    localStorage.setItem("template_ativo_id", idTemplate);
+    localStorage.setItem("template_ativo_texto", textoTemplate);
+
+    // Atualiza a interface visual dos cards de templates
+    atualizarVisualTemplates(idTemplate);
+}
+
+// Função auxiliar para atualizar o visual de qual card está ativo na tela de templates
+function atualizarVisualTemplates(idAtivo) {
+    const card1 = document.getElementById("card-template-1");
+    const card2 = document.getElementById("card-template-2");
+    const badge1 = document.getElementById("badge-tpl-1");
+    const badge2 = document.getElementById("badge-tpl-2");
+
+    if (!card1 || !card2) return;
+
+    if (idAtivo === 1) {
+        card1.style.border = "2px solid var(--primary-color, #b8860b)";
+        card1.style.background = "#fffdf5";
+        badge1.style.display = "inline-block";
+
+        card2.style.border = "1px solid #ddd";
+        card2.style.background = "#fff";
+        badge2.style.display = "none";
+    } else {
+        card2.style.border = "2px solid var(--primary-color, #b8860b)";
+        card2.style.background = "#fffdf5";
+        badge2.style.display = "inline-block";
+
+        card1.style.border = "1px solid #ddd";
+        card1.style.background = "#fff";
+        badge1.style.display = "none";
+    }
 }
 
 // Abre/fecha o menu lateral
@@ -956,9 +1121,8 @@ function mostrarAgendaWhatsApp(tipo) {
         
         const nomeClienteExibicao = clienteObj ? clienteObj.nome : (ag.cliente || 'Cliente');
         
-        const mensagem = `Olá ${nomeClienteExibicao}, passando para lembrar do nosso agendamento ${tituloSecao} (${ag.data.split('-').reverse().join('/')}) às ${ag.horario} para: ${servicosStr}. Te espero no estúdio! ✨`;
-        const linkWp = telLimpo ? `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${encodeURIComponent(mensagem)}` : '#';
-
+        const linkWp = telLimpo ? gerarLinkWhatsapp(telLimpo, nomeClienteExibicao, ag.data.split('-').reverse().join('/'), ag.horario, servicosStr) : '#';
+        
         return `
             <div class="item-card">
                 <div class="item-header">
@@ -991,3 +1155,106 @@ function mostrarAgendaWhatsApp(tipo) {
         </div>
     `;    
 }
+
+/* --- FUNÇÕES DO MINI MODAL DE AGENDAMENTO --- */
+
+function abrirModalAcao(id, nomeCliente, servicos) {
+    document.getElementById("modal-agendamento-id").value = id;
+    document.getElementById("modal-titulo-cliente").textContent = nomeCliente;
+    document.getElementById("modal-sub-servicos").textContent = "Serviços: " + servicos;
+
+    // Esconde o bloco de reagendamento ao abrir
+    const blocoReagendamento = document.getElementById("bloco-reagendamento");
+    if (blocoReagendamento) blocoReagendamento.style.display = "none";
+
+    // Limpa os inputs de nova data/hora
+    document.getElementById("novo-agendamento-data").value = "";
+    document.getElementById("novo-agendamento-horario").value = "";
+
+    // Exibe o modal
+    document.getElementById("modal-acao-agendamento").style.display = "flex";
+}
+
+function fecharModalAcao() {
+    document.getElementById("modal-acao-agendamento").style.display = "none";
+}
+
+function abrirCamposReagendamento() {
+    const bloco = document.getElementById("bloco-reagendamento");
+    if (bloco) {
+        bloco.style.display = bloco.style.display === "block" ? "none" : "block";
+    }
+}
+
+function executarAcaoAgendamento(tipoAcao) {
+    const id = Number(document.getElementById("modal-agendamento-id").value);
+    let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    const agendamentoIndex = agendamentos.findIndex(a => a.id === id);
+
+    if (agendamentoIndex === -1) {
+        alert("Agendamento não encontrado.");
+        fecharModalAcao();
+        return;
+    }
+
+    const agendamento = agendamentos[agendamentoIndex];
+
+    if (tipoAcao === 'realizado') {
+        fecharModalAcao();
+        // Chama a função existente de conclusão que abate pacote ou registra histórico
+        concluirAgendamento(agendamento.id);
+        return;
+    }
+
+    if (tipoAcao === 'faltou') {
+        if (!confirm("Deseja registrar que a cliente faltou sem aviso? O agendamento será removido da agenda.")) return;
+        
+        let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+        const cliente = clientes.find(c => c.id === agendamento.clienteId);
+        const ehPacote = cliente ? cliente.clientePacote : false;
+
+        // Formata a data para o registro
+        const dataFormatada = agendamento.data.split('-').reverse().join('/');
+        const desc = `Falta sem aviso em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
+        
+        // Se for pacote, debita o valor/saldo. Se não, registra apenas como histórico/aviso.
+        const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
+
+        if (typeof adicionarMovimentacaoCliente === 'function') {
+            adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
+        }
+
+        // Remove da agenda atual
+        agendamentos.splice(agendamentoIndex, 1);
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+        
+        fecharModalAcao();
+        alert(ehPacote ? "Falta registrada e valor debitado do pacote da cliente!" : "Falta registrada no histórico da cliente.");
+        carregarAgendamentos();
+        return;
+    }
+
+    if (tipoAcao === 'reagendar') {
+        const novaData = document.getElementById("novo-agendamento-data").value;
+        const novoHorario = document.getElementById("novo-agendamento-horario").value;
+
+        if (!novaData || !novoHorario) {
+            alert("Por favor, selecione a nova data e o novo horário para o reagendamento.");
+            return;
+        }
+
+        if (!confirm(`Confirmar reagendamento para o dia ${novaData.split('-').reverse().join('/')} às ${novoHorario}?`)) return;
+
+        // Atualiza os dados do agendamento existente
+        agendamentos[agendamentoIndex].data = novaData;
+        agendamentos[agendamentoIndex].horario = novoHorario;
+
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+
+        fecharModalAcao();
+        alert("Agendamento reagendado com sucesso!");
+        carregarAgendamentos();
+        return;
+    }
+}
+
