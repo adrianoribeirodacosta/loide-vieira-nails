@@ -1221,6 +1221,7 @@ function executarAcaoAgendamento(tipoAcao) {
         fecharModalAcao();
         alert(ehPacote ? "Falta registrada e valor debitado do pacote da cliente!" : "Falta registrada no histórico da cliente.");
         carregarAgendamentos();
+        carregarClientes();
         return;
     }
 
@@ -1248,3 +1249,94 @@ function executarAcaoAgendamento(tipoAcao) {
     }
 }
 
+// =======================================================
+//                   BACKUP E SEGURANÇA
+//========================================================
+
+// EXPORTAR BACKUP
+
+function exportarBackup() {
+    try {
+        // Coleta todas as chaves do localStorage do projeto
+        const dadosBackup = {
+            agendamentos_studio: JSON.parse(localStorage.getItem("agendamentos_studio")) || [],
+            clientes_studio: JSON.parse(localStorage.getItem("clientes_studio")) || [],
+            servicos_studio: JSON.parse(localStorage.getItem("servicos_studio")) || [],
+            template_ativo_id: localStorage.getItem("template_ativo_id") || "",
+            template_ativo_text: localStorage.getItem("template_ativo_text") || "",
+            dataBackup: new Date().toISOString() // Para controle interno da versão do backup
+        };
+
+        // Converte o objeto para uma string JSON formatada
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosBackup, null, 2));
+        
+        // Cria um elemento de link temporário para download
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        
+        // Define o nome do arquivo com a data de hoje para facilitar a organização da Sra. Loide
+        const dataHoje = new Date().toISOString().split('T')[0];
+        downloadAnchor.setAttribute("download", `backup_studio_${dataHoje}.json`);
+        
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        alert("Backup exportado com sucesso! Guarde esse arquivo em um local seguro.");
+    } catch (e) {
+        console.error("Erro ao exportar backup:", e);
+        alert("Ocorreu um erro ao gerar o backup. Tente novamente.");
+    }
+}
+
+// FIM DE EXPORTAR BACKUP
+
+// IMPORTAR BACKUP
+
+function importarBackup(event) {
+    const arquivo = event.target.files[0];
+    if (!arquivo) return;
+
+    if (!confirm("Atenção: A importação irá substituir todos os dados atuais pelos dados do backup. Deseja continuar?")) {
+        event.target.value = ""; // Limpa o input
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const conteudo = JSON.parse(e.target.result);
+
+            // Validação simples para garantir que o arquivo é do nosso sistema
+            if (!conteudo.agendamentos_studio || !conteudo.clientes_studio) {
+                alert("O arquivo selecionado parece ser inválido ou corrompido.");
+                return;
+            }
+
+            // Restaura cada chave no localStorage
+            localStorage.setItem("agendamentos_studio", JSON.stringify(conteudo.agendamentos_studio));
+            localStorage.setItem("clientes_studio", JSON.stringify(conteudo.clientes_studio));
+            localStorage.setItem("servicos_studio", JSON.stringify(conteudo.servicos_studio));
+            
+            if (conteudo.template_ativo_id) {
+                localStorage.setItem("template_ativo_id", conteudo.template_ativo_id);
+            }
+            if (conteudo.template_ativo_text) {
+                localStorage.setItem("template_ativo_text", conteudo.template_ativo_text);
+            }
+
+            alert("Backup restaurado com sucesso! O aplicativo será recarregado.");
+            
+            // Recarrega a página para atualizar todas as telas com os novos dados
+            window.location.reload();
+
+        } catch (erro) {
+            console.error("Erro ao ler o arquivo de backup:", erro);
+            alert("Erro ao processar o arquivo JSON. Certifique-se de que é um arquivo de backup válido.");
+        }
+    };
+
+    reader.readAsText(arquivo);
+}
+
+// FIM DE IMPORTAR BACKUP

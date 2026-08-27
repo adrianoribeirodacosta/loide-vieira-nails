@@ -120,7 +120,6 @@
         <section id="tab-clientes" class="tab-content">
             <div class="card">
                 <h2>Gerenciamento de Clientes</h2>
-                <p>Cadastros, telefones e recorrências (RF001, RF002 e RF003).</p>
                 
                 <!-- Botão de Importação da Agenda Nativa (RF001) -->
                 <button type="button" id="btn-import-contact" class="btn-secondary" onclick="importarContatoNativo()">
@@ -181,7 +180,6 @@
         <section id="tab-servicos" class="tab-content">
             <div class="card">
                 <h2>Gerenciamento de Serviços</h2>
-                <p>Cadastro de procedimentos, tempos e valores (RF002 e RF006).</p>
                 
                 <!-- Formulário de Serviço -->
                 <form id="form-servico" onsubmit="salvarServico(event)">
@@ -290,9 +288,26 @@ Atenciosamente, ${empresa}</p>
         <!-- Aba 4: Configurações / Backup -->
         <section id="tab-backup" class="tab-content">
             <div class="card">
-                <h2>Backup e Segurança</h2>
-                <p>Exportação e importação de dados via JSON (RF007 e RF008).</p>
+            <h2>Backup e Segurança</h2>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Guarde uma cópia de segurança dos seus dados ou recupere um backup anterior caso troque de aparelho.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Botão Exportar -->
+                <button type="button" onclick="exportarBackup()" style="background-color: #2e7d32; color: white; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem;">
+                    📥 Baixar Backup Atual
+                </button>
+
+                <!-- Botão Importar (Dispara o input invisível) -->
+                <button type="button" onclick="document.getElementById('input-importar-backup').click()" style="background-color: #f57c00; color: white; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem;">
+                    📤 Restaurar Backup
+                </button>
+
+                <!-- Input file oculto que executa a importação -->
+                <input type="file" id="input-importar-backup" accept=".json" style="display: none;" onchange="importarBackup(event)">
             </div>
+        </div>
         </section>
     </div>
 
