@@ -158,6 +158,12 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label for="cliente-aniversario">Aniversário (Dia e Mês):</label>
+                        <input type="date" id="cliente-aniversario" style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                        <small style="color: #666; font-size: 0.75rem; display: block; margin-top: 2px;">Informe apenas para receber lembretes de parabéns (o ano é ignorado).</small>
+                    </div>
+
                     <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
                         <input type="checkbox" id="cliente-pacote" style="width: 20px; height: 20px; accent-color: #4a148c; cursor: pointer;">
                         <label for="cliente-pacote" style="margin-bottom: 0; cursor: pointer; font-weight: 500;">Cliente de Pacote / Recorrente</label>
@@ -413,6 +419,67 @@ Atenciosamente, ${empresa}</p>
 
             <!-- Botão Fechar / Cancelar -->
             <button type="button" class="modal-btn-cancelar" onclick="fecharModalAcao()">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Tela de Login / Bloqueio Inicial -->
+    <div id="modal-login" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background: #fff; padding: 30px; border-radius: 12px; width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <h2 style="color: #c59b27; margin-bottom: 5px;">Loide Studio</h2>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Digite suas credenciais para continuar.</p>
+            
+            <form onsubmit="realizarLogin(event)">
+                <div style="text-align: left; margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #444;">Usuário:</label>
+                    <input type="text" id="input-usuario-acesso" placeholder="Seu usuário" required style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #444;">Senha:</label>
+                    <input type="password" id="input-senha-acesso" placeholder="Sua senha" required style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <button type="submit" style="width: 100%; padding: 11px; background: #c59b27; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem;">Entrar</button>
+            </form>
+
+            <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                <a href="#" onclick="abrirModalAlterarSenha(); return false;" style="color: #666; font-size: 0.85rem; text-decoration: none;">Alterar Usuário ou Senha</a>
+            </div>
+            <div style="margin-top: 8px;">
+                <button type="button" onclick="esqueciMinhaSenha()" style="background: none; border: none; color: #999; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">Esqueci o acesso</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-alterar-senha" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 10000;">
+        <div style="background: #fff; padding: 30px; border-radius: 12px; width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <h3 style="color: #c59b27; margin-bottom: 15px;">Alterar Credenciais</h3>
+            
+            <form onsubmit="salvarNovasCredenciais(event)">
+                <div style="text-align: left; margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Senha Atual (para confirmar):</label>
+                    <input type="password" id="senha-atual" placeholder="Senha atual" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="text-align: left; margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Novo Usuário:</label>
+                    <input type="text" id="novo-usuario" placeholder="Novo nome de usuário" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="text-align: left; margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Nova Senha:</label>
+                    <input type="password" id="senha-nova" placeholder="Nova senha" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Confirme a Nova Senha:</label>
+                    <input type="password" id="senha-confirma" placeholder="Confirme a nova senha" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <button type="submit" style="width: 100%; padding: 10px; background: #c59b27; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Salvar Alterações</button>
+            </form>
+
+            <button type="button" onclick="fecharModalAlterarSenha()" style="margin-top: 10px; background: none; border: none; color: #666; font-size: 0.85rem; cursor: pointer; text-decoration: underline;">Cancelar</button>
         </div>
     </div>
 

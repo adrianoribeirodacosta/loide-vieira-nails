@@ -194,6 +194,8 @@ function salvarCliente(event) {
     const nome = document.getElementById("cliente-nome").value.trim();
     const telefone = document.getElementById("cliente-telefone").value.trim();
     const recorrencia = document.getElementById("cliente-recorrencia").value;
+    const aniversarioCompleto = document.getElementById("cliente-aniversario").value; // Ex: "1995-12-15"
+    const aniversario = aniversarioCompleto ? aniversarioCompleto.slice(5) : ""; // Salva apenas "12-15" (ignora o ano)
     const clientePacote = document.getElementById("cliente-pacote").checked;
     
     const servicosPadrao = Array.from(document.querySelectorAll('input[name="cliente-servico"]:checked'))
@@ -211,8 +213,8 @@ function salvarCliente(event) {
                     telefone,
                     recorrencia,
                     servicosPadrao,
-                    clientePacote
-                    // Aqui entraremos com o campo de pacote em instantes
+                    clientePacote,
+                    aniversario
                 };
             }
             return c;
@@ -226,6 +228,7 @@ function salvarCliente(event) {
             recorrencia,
             servicosPadrao,
             clientePacote,
+            aniversario,
             saldoAtual: 0, // Inicializa zerado para novos
             extrato: []    // Histórico vazio para novos
         };
@@ -237,6 +240,7 @@ function salvarCliente(event) {
     // Limpar formulário, desmarcar checkboxes e recarregar lista
     document.getElementById("form-cliente").reset();
     document.getElementById("cliente-id").value = "";
+    document.getElementById("cliente-aniversario").value = "";
     document.getElementById("cliente-pacote").checked = false; // <--- Adicionar esta linha
     document.querySelectorAll('input[name="cliente-servico"]').forEach(el => el.checked = false);
     carregarClientes();
@@ -271,7 +275,8 @@ function carregarClientes() {
             <div class="item-badges" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
                 <span class="tempo-badge">📞 ${c.telefone}</span>
                 <span class="tempo-badge" style="background-color: #e3f2fd; color: #0d47a1;">🔄 ${c.recorrencia || 'Nenhuma'}</span>
-                ${ c.clientePacote ? '<span class="tempo-badge" style="background-color: #e8f5e9; color: #2e7d32;">📦 Cliente de Pacote</span>' : '' }    
+                ${ c.clientePacote ? '<span class="tempo-badge" style="background-color: #e8f5e9; color: #2e7d32;">📦 Cliente de Pacote</span>' : '' }
+                ${ c.aniversario ? `<span class="tempo-badge" style="background-color: #fff3e0; color: #e65100;" title="Data de Aniversário">🎂 ${c.aniversario.split('-').reverse().join('/')}</span>` : '' }
             </div>
 
             <!-- Linha dos Serviços Padrão / Combo -->
@@ -304,6 +309,7 @@ function editarCliente(id) {
         document.getElementById("cliente-nome").value = cliente.nome;
         document.getElementById("cliente-telefone").value = cliente.telefone;
         document.getElementById("cliente-recorrencia").value = cliente.recorrencia || "Nenhuma";
+        document.getElementById("cliente-aniversario").value = cliente.aniversario ? `2024-${cliente.aniversario}` : "";
         document.getElementById("cliente-pacote").checked = !!cliente.clientePacote;
         
         // Garantir que os checkboxes estejam carregados e marcar os salvos
@@ -676,13 +682,17 @@ function atualizarTotalAgenda() {
     }
 }
 
-// Salvar Agendamento com Confirmação e Limite de 200 Registros
+// Salvar ou Atualizar Agendamento com Confirmação e Limite de 200 Registros
 function salvarAgendamento(event) {
     event.preventDefault();
 
-    const clienteId = document.getElementById("agenda-cliente").value;
+    const selectCliente = document.getElementById("agenda-cliente");
+    const clienteId = selectCliente.value;
+    const nomeCliente = selectCliente.options[selectCliente.selectedIndex].text;
+    
     const data = document.getElementById("agenda-data").value;
     const horario = document.getElementById("agenda-horario").value;
+    const idEdicao = document.getElementById("agendamento-id").value; // Pega o ID oculto para saber se é edição
 
     if (!clienteId || !data || !horario) {
         alert("Por favor, preencha a cliente, data e horário.");
@@ -713,37 +723,69 @@ function salvarAgendamento(event) {
         return;
     }
 
-    // Confirmação para evitar salvamento acidental
-    const confirmar = confirm(`Deseja realmente confirmar este agendamento no valor total de R$ ${totalAtendimento.toFixed(2).replace('.', ',')}?`);
+    // Formata a data de YYYY-MM-DD para DD/MM/YYYY para melhorar a leitura
+    const [ano, mes, dia] = data.split('-');
+    const dataFormatada = `${dia}/${mes}/${ano}`;
+
+    // Mensagem dinâmica de confirmação (se é novo ou atualização)
+    const acaoTexto = idEdicao ? "atualizar o agendamento" : "confirmar o agendamento";
+    const confirmar = confirm(`Deseja realmente ${acaoTexto} de ${nomeCliente} em ${dataFormatada} às ${horario} h no valor total de R$ ${totalAtendimento.toFixed(2).replace('.', ',')}?`);
     if (!confirmar) return;
 
     let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
     
-    const novoAgendamento = {
-        id: Date.now(),
-        clienteId: Number(clienteId),
-        data,
-        horario,
-        servicos: servicosAtendimento,
-        total: totalAtendimento,
-        status: 'Pendente' // Para controle futuro de cronômetro/conclusão
-    };
+    if (idEdicao) {
+        // --- MODO EDIÇÃO ---
+        const index = agendamentos.findIndex(a => a.id == idEdicao);
+        if (index !== -1) {
+            agendamentos[index] = {
+                ...agendamentos[index], // Preserva ID original e status
+                clienteId: Number(clienteId),
+                data,
+                horario,
+                servicos: servicosAtendimento,
+                total: totalAtendimento
+            };
+        }
+    } else {
+        // --- MODO NOVO CADASTRO ---
+        const novoAgendamento = {
+            id: Date.now(),
+            clienteId: Number(clienteId),
+            data,
+            horario,
+            servicos: servicosAtendimento,
+            total: totalAtendimento,
+            status: 'Pendente'
+        };
 
-    // Trava de segurança: Se já houver 200 ou mais, remove o mais antigo (o primeiro da lista)
-    if (agendamentos.length >= 200) {
-        agendamentos.shift(); 
+        // Trava de segurança: Se já houver 200 ou mais, remove o mais antigo
+        if (agendamentos.length >= 200) {
+            agendamentos.shift(); 
+        }
+
+        agendamentos.push(novoAgendamento);
     }
 
-    agendamentos.push(novoAgendamento);
     localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
-
-    alert("Agendamento salvo com sucesso!");
     
-    // Limpar formulário
+    // Limpar formulário e resetar o campo oculto de ID e textos do botão
     document.getElementById("form-agendamento").reset();
+    document.getElementById("agendamento-id").value = "";
     document.getElementById("container-servicos-agenda").innerHTML = "";
-    atualizarTotalAgenda();
+    
+    // Reseta visualmente o título e o botão para o modo padrão "Novo Agendamento"
+    const formCard = document.querySelector("#form-agendamento").closest(".card");
+    const tituloCard = formCard.querySelector("h2");
+    if (tituloCard) tituloCard.innerText = "Novo Agendamento";
+    
+    const btnSubmit = document.querySelector("#form-agendamento button[type='submit']");
+    if (btnSubmit) btnSubmit.innerText = "Salvar Agendamento";
+
+    if (typeof atualizarTotalAgenda === 'function') atualizarTotalAgenda();
     carregarAgendamentos();
+    
+    alert(idEdicao ? "Agendamento atualizado com sucesso!" : "Agendamento cadastrado com sucesso!");
 }
 
 function carregarAgendamentos() {
@@ -810,6 +852,15 @@ function carregarAgendamentos() {
         const nomeCliente = clienteObj ? clienteObj.nome : "Cliente não encontrada";
         const dataFormatadaExibicao = ag.data.split('-').reverse().join('/');
         
+        // Verifica se hoje é o aniversário da cliente com base na data do agendamento
+        let iconeAniversario = "";
+        if (clienteObj && clienteObj.aniversario) {
+            if (ag.data.slice(5) === clienteObj.aniversario) {
+                // Criamos o badge completo com o bolo para ficar bem elegante embaixo
+                iconeAniversario = '<span class="tempo-badge" style="background-color: #fff3e0; color: #e65100; margin-right: 4px;" title="Aniversariante do dia!">🎂</span>';
+            }
+        }
+        
         return `
             <div class="item-card">
                 <div>
@@ -822,8 +873,10 @@ function carregarAgendamentos() {
                     </div>
                     <div class="item-details" style="border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: bold; color: #2e7d32;">Total: R$ ${ag.total.toFixed(2).replace('.', ',')}</span>
-                        <div class="acoes-card" style="display: flex; gap: 4px;">
+                        <div class="acoes-card" style="display: flex; gap: 4px; align-items: center;">
+                            ${iconeAniversario}
                             <button type="button" class="btn-ico" onclick="abrirModalAcao(${ag.id}, '${nomeCliente.replace(/'/g, "\\'")}', '${ag.servicos.map(s => s.nome).join(', ')}')" title="Gerenciar Atendimento">✅</button>
+                            <button type="button" class="btn-ico" onclick="abrirEdicaoAgendamento(${ag.id})" title="Editar Agendamento">✏️</button>
                             <button type="button" class="btn-ico" onclick="excluirAgendamento(${ag.id})" title="Excluir">🗑️</button>
                         </div>
                     </div>
@@ -838,6 +891,63 @@ function limparFiltroAgenda() {
     const inputFiltro = document.getElementById("filtro-data-agenda");
     if (inputFiltro) inputFiltro.value = "";
     carregarAgendamentos();
+}
+
+function abrirEdicaoAgendamento(id) {
+    let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    const agendamento = agendamentos.find(a => a.id === id);
+    if (!agendamento) return;
+
+    // 1. Seta o ID oculto para o salvamento reconhecer que é uma edição
+    document.getElementById("agendamento-id").value = agendamento.id;
+
+    // 2. Preenche cliente, data e horário
+    document.getElementById("agenda-cliente").value = agendamento.clienteId;
+    document.getElementById("agenda-data").value = agendamento.data;
+    document.getElementById("agenda-horario").value = agendamento.horario;
+
+    // 3. Limpa o container de serviços
+    const container = document.getElementById("container-servicos-agenda");
+    container.innerHTML = "";
+
+    // 4. Recria as linhas de serviço já injetando o nome E o preço salvo corretamente
+    agendamento.servicos.forEach(serv => {
+        // Chama a função base para criar a linha visual no HTML
+        if (typeof adicionarServicoExtraAgenda === 'function') {
+            adicionarServicoExtraAgenda();
+            
+            const linhas = container.querySelectorAll('.item-servico-agenda');
+            const ultimaLinha = linhas[linhas.length - 1];
+            
+            if (ultimaLinha) {
+                const selectServico = ultimaLinha.querySelector('.select-servico-item');
+                const inputPreco = ultimaLinha.querySelector('.input-preco-item');
+                
+                if (selectServico) selectServico.value = serv.nome;
+                // Atribui diretamente o preço salvo e garante que reflicta no campo
+                if (inputPreco) inputPreco.value = serv.preco.toFixed(2);
+            }
+        }
+    });
+
+    // 5. Atualiza o total visual do formulário
+    if (typeof atualizarTotalAgenda === 'function') {
+        atualizarTotalAgenda();
+    } else {
+        const labelTotal = document.getElementById("label-total-agenda");
+        if (labelTotal) labelTotal.innerText = `R$ ${agendamento.total.toFixed(2).replace('.', ',')}`;
+    }
+
+    // 6. Feedback visual: altera título e botão para "Editar / Atualizar"
+    const formCard = document.querySelector("#form-agendamento").closest(".card");
+    const tituloCard = formCard.querySelector("h2");
+    if (tituloCard) tituloCard.innerText = "Editar Agendamento";
+
+    const btnSubmit = document.querySelector("#form-agendamento button[type='submit']");
+    if (btnSubmit) btnSubmit.innerText = "Atualizar Agendamento";
+
+    // 7. Rola a tela suavemente para cima
+    formCard.scrollIntoView({ behavior: 'smooth' });
 }
 
 
@@ -906,6 +1016,9 @@ function concluirAgendamento(id) {
     agendamentos = agendamentos.filter(a => a.id !== id);
     localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
     
+    // -> AQUI: Verifica se a cliente tem recorrência configurada para sugerir o próximo agendamento
+    verificarRecorrenciaEAgendar(agendamento);
+
     alert("Atendimento concluído e registrado com sucesso!");
     
     // Atualiza as telas se as funções existirem
@@ -1219,6 +1332,10 @@ function executarAcaoAgendamento(tipoAcao) {
         localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
         
         fecharModalAcao();
+
+        // Verifica a recorrência também no caso de falta, se desejar reaproveitar
+        verificarRecorrenciaEAgendar(agendamento);
+
         alert(ehPacote ? "Falta registrada e valor debitado do pacote da cliente!" : "Falta registrada no histórico da cliente.");
         carregarAgendamentos();
         carregarClientes();
@@ -1246,6 +1363,72 @@ function executarAcaoAgendamento(tipoAcao) {
         alert("Agendamento reagendado com sucesso!");
         carregarAgendamentos();
         return;
+    }
+}
+
+// Função auxiliar para calcular a nova data com base na recorrência
+function calcularProximaDataRecorrencia(dataAtualStr, regra) {
+    const [ano, mes, dia] = dataAtualStr.split('-').map(Number);
+    const dataObj = new Date(ano, mes - 1, dia);
+    const regraLower = regra ? regra.toLowerCase().trim() : '';
+
+    if (regraLower.includes('semanal') && !regraLower.includes('quinzenal')) {
+        dataObj.setDate(dataObj.getDate() + 7);
+    } else if (regraLower.includes('quinzenal')) {
+        dataObj.setDate(dataObj.getDate() + 14);
+    } else if (regraLower.includes('mensal')) {
+        dataObj.setMonth(dataObj.getMonth() + 1);
+    } else {
+        return null; // Se não for nenhuma conhecida ou estiver vazia
+    }
+
+    const novoAno = dataObj.getFullYear();
+    const novoMes = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const novoDia = String(dataObj.getDate()).padStart(2, '0');
+
+    return `${novoAno}-${novoMes}-${novoMes ? '' : ''}${novoDia}`; // Formato YYYY-MM-DD
+}
+
+// Função para verificar e sugerir o próximo agendamento recorrente
+function verificarRecorrenciaEAgendar(agendamento) {
+    let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    const cliente = clientes.find(c => c.id === agendamento.clienteId);
+
+    // Valida se a cliente existe e se tem regra de recorrência preenchida
+    if (!cliente || !cliente.recorrencia || cliente.recorrencia.trim() === "") {
+        return;
+    }
+
+    const proximaDataIso = calcularProximaDataRecorrencia(agendamento.data, cliente.recorrencia);
+    if (!proximaDataIso) return;
+
+    const [ano, mes, dia] = proximaDataIso.split('-');
+    const proximaDataFormatada = `${dia}/${mes}/${ano}`;
+    const nomeCliente = cliente.nome || "Cliente";
+
+    const confirmarRecorrencia = confirm(`De acordo com o cadastro da cliente, a regra de recorrência consta como "${cliente.recorrencia}". Deseja deixar marcado para o próximo dia ${proximaDataFormatada} às ${agendamento.horario} h?`);
+
+    if (confirmarRecorrencia) {
+        let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+
+        const novoAgendamentoRecorrente = {
+            id: Date.now(),
+            clienteId: agendamento.clienteId,
+            data: proximaDataIso,
+            horario: agendamento.horario,
+            servicos: [...agendamento.servicos], // Copia os serviços do atendimento atual
+            total: agendamento.total,
+            status: 'Pendente'
+        };
+
+        // Trava de segurança de 200 registros
+        if (agendamentos.length >= 200) {
+            agendamentos.shift();
+        }
+
+        agendamentos.push(novoAgendamentoRecorrente);
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+        alert("Próximo agendamento recorrente criado com sucesso!");
     }
 }
 
@@ -1340,3 +1523,123 @@ function importarBackup(event) {
 }
 
 // FIM DE IMPORTAR BACKUP
+
+// Função auxiliar para gerar Hash SHA-256
+async function gerarHash(texto) {
+    const encoder = new TextEncoder();
+    const dados = encoder.encode(texto);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dados);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Inicialização: Verifica sessão e garante credenciais padrão se não existirem
+document.addEventListener("DOMContentLoaded", async () => {
+    const logadoNaSessao = sessionStorage.getItem("studio_logado");
+    if (logadoNaSessao === "true") {
+        document.getElementById("modal-login").style.display = "none";
+    }
+
+    // Padrão inicial: usuário "admin" e senha "admin" (com hash)
+    if (!localStorage.getItem("studio_usuario")) {
+        localStorage.setItem("studio_usuario", "admin");
+    }
+    if (!localStorage.getItem("studio_senha_hash")) {
+        const hashAdminPadrao = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+        localStorage.setItem("studio_senha_hash", hashAdminPadrao);
+    }
+    
+    // Preenche o campo de usuário automaticamente no modal para facilitar
+    const usuarioSalvo = localStorage.getItem("studio_usuario");
+    if(document.getElementById("input-usuario-acesso")) {
+        document.getElementById("input-usuario-acesso").value = usuarioSalvo;
+    }
+    if(document.getElementById("novo-usuario")) {
+        document.getElementById("novo-usuario").value = usuarioSalvo;
+    }
+});
+
+// Função para validar o login (Usuário + Senha)
+async function realizarLogin(event) {
+    event.preventDefault();
+    const usuarioDigitado = document.getElementById("input-usuario-acesso").value.trim();
+    const senhaDigitada = document.getElementById("input-senha-acesso").value;
+    
+    const usuarioSalvo = localStorage.getItem("studio_usuario") || "admin";
+    const hashSalvo = localStorage.getItem("studio_senha_hash");
+    
+    const hashDigitado = await gerarHash(senhaDigitada);
+
+    if (usuarioDigitado === usuarioSalvo && hashDigitado === hashSalvo) {
+        sessionStorage.setItem("studio_logado", "true");
+        document.getElementById("modal-login").style.display = "none";
+        document.getElementById("input-senha-acesso").value = "";
+    } else {
+        alert("Usuário ou senha incorretos! Tente novamente.");
+    }
+}
+
+// Abrir/Fechar modal de alteração
+function abrirModalAlterarSenha() {
+    // Atualiza o input com o usuário atual antes de abrir
+    document.getElementById("novo-usuario").value = localStorage.getItem("studio_usuario") || "admin";
+    document.getElementById("modal-alterar-senha").style.display = "flex";
+}
+
+function fecharModalAlterarSenha() {
+    document.getElementById("modal-alterar-senha").style.display = "none";
+    document.getElementById("senha-atual").value = "";
+    document.getElementById("senha-nova").value = "";
+    document.getElementById("senha-confirma").value = "";
+}
+
+// Salvar novos dados (Usuário e/ou Senha)
+async function salvarNovasCredenciais(event) {
+    event.preventDefault();
+    const atualDigitada = document.getElementById("senha-atual").value;
+    const novoUsuario = document.getElementById("novo-usuario").value.trim();
+    const novaSenha = document.getElementById("senha-nova").value;
+    const confirmaSenha = document.getElementById("senha-confirma").value;
+
+    const hashAtualDigitado = await gerarHash(atualDigitada);
+    const hashSalvo = localStorage.getItem("studio_senha_hash");
+
+    if (hashAtualDigitado !== hashSalvo) {
+        alert("A senha atual está incorreta.");
+        return;
+    }
+
+    if (novaSenha !== confirmaSenha) {
+        alert("A nova senha e a confirmação não coincidem.");
+        return;
+    }
+
+    // Salva o novo usuário e o novo hash da senha
+    const novoHash = await gerarHash(novaSenha);
+    localStorage.setItem("studio_usuario", novoUsuario);
+    localStorage.setItem("studio_senha_hash", novoHash);
+    
+    alert("Credenciais alteradas com sucesso!");
+    fecharModalAlterarSenha();
+    
+    // Atualiza o campo de login automaticamente
+    document.getElementById("input-usuario-acesso").value = novoUsuario;
+}
+
+// Emergência caso esqueça o acesso
+function esqueciMinhaSenha() {
+    const confirmacao = prompt("Para restaurar as credenciais padrão ('admin' / 'admin'), digite a Frase de Recuperação Mestra:");
+    const fraseMestra = "studio-recuperar-2026"; 
+
+    if (confirmacao === fraseMestra) {
+        localStorage.setItem("studio_usuario", "admin");
+        const hashAdminPadrao = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+        localStorage.setItem("studio_senha_hash", hashAdminPadrao);
+        
+        sessionStorage.removeItem("studio_logado");
+        alert("Acesso restaurado para: Usuário 'admin' e Senha 'admin'. Faça o login novamente.");
+        location.reload();
+    } else if (confirmacao !== null) {
+        alert("Frase de recuperação incorreta.");
+    }
+}
