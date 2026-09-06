@@ -244,6 +244,7 @@ function salvarCliente(event) {
     document.getElementById("cliente-pacote").checked = false; // <--- Adicionar esta linha
     document.querySelectorAll('input[name="cliente-servico"]').forEach(el => el.checked = false);
     carregarClientes();
+    carregarSelectClientesAgenda();
 }
 
 // Renderizar lista de clientes na tela
@@ -1433,7 +1434,7 @@ function verificarRecorrenciaEAgendar(agendamento) {
 }
 
 // =======================================================
-//                   BACKUP E SEGURANÇA
+//                  BACKUP E SEGURANÇA
 //========================================================
 
 // EXPORTAR BACKUP
@@ -1447,34 +1448,59 @@ function exportarBackup() {
             servicos_studio: JSON.parse(localStorage.getItem("servicos_studio")) || [],
             template_ativo_id: localStorage.getItem("template_ativo_id") || "",
             template_ativo_text: localStorage.getItem("template_ativo_text") || "",
-            dataBackup: new Date().toISOString() // Para controle interno da versão do backup
+            dataBackup: new Date().toISOString()
         };
 
-        // Converte o objeto para uma string JSON formatada
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosBackup, null, 2));
-        
-        // Cria um elemento de link temporário para download
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        
-        // Define o nome do arquivo com a data de hoje para facilitar a organização da Sra. Loide
+        const jsonString = JSON.stringify(dadosBackup, null, 2);
         const dataHoje = new Date().toISOString().split('T')[0];
-        downloadAnchor.setAttribute("download", `backup_studio_${dataHoje}.json`);
-        
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        const nomeArquivo = `backup_studio_${dataHoje}.json`;
 
-        alert("Backup exportado com sucesso! Guarde esse arquivo em um local seguro.");
+        const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
+
+        // Se o navegador suportar compartilhamento de arquivos E for dispositivo móvel
+        const arquivo = new File([blob], nomeArquivo, { type: "application/json" });
+        
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] }) && /Mobi|Android/i.test(navigator.userAgent)) {
+            navigator.share({
+                files: [arquivo],
+                title: 'Backup Loide Studio',
+                text: 'Cópia de segurança dos dados do sistema.'
+            }).catch((error) => {
+                if (error.name !== 'AbortError') {
+                    console.log("Compartilhamento ignorado, alternando para download direto.");
+                    executarDownloadFallback(blob, nomeArquivo);
+                }
+            });
+        } else {
+            // Executa o download padrão seguro (funciona em PC, Android e evita erros de permissão)
+            executarDownloadFallback(blob, nomeArquivo);
+        }
+
     } catch (e) {
         console.error("Erro ao exportar backup:", e);
         alert("Ocorreu um erro ao gerar o backup. Tente novamente.");
     }
 }
 
-// FIM DE EXPORTAR BACKUP
+// Função auxiliar de suporte para o download direto
+function executarDownloadFallback(blob, nomeArquivo) {
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = nomeArquivo;
+    
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    
+    setTimeout(() => {
+        document.body.removeChild(downloadAnchor);
+        window.URL.revokeObjectURL(url);
+    }, 100);
 
-// IMPORTAR BACKUP
+    alert("Backup exportado com sucesso! Guarde esse arquivo em um local seguro.");
+}
+
+// FIM DE EXPORTAR BACKUP
 
 function importarBackup(event) {
     const arquivo = event.target.files[0];
