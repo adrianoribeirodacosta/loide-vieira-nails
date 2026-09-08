@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Loide Vieira Nails Studio</title>
 
     <!-- Favicon da Aba -->
@@ -15,9 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <!-- Estilos CSS Externos -->
-    <link rel="stylesheet" href="css/style.css">    
-    </style>
-
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -136,6 +134,14 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="cliente-genero">Gênero / Tratamento:</label>
+                        <select id="cliente-genero">
+                            <option value="F">Feminino (A cliente)</option>
+                            <option value="M">Masculino (O cliente)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label for="cliente-telefone">Telefone (WhatsApp):</label>
                         <input type="tel" id="cliente-telefone" required placeholder="(41) 99999-9999" oninput="aplicarMascaraTelefone(this)">
                     </div>
@@ -176,6 +182,12 @@
             <!-- Lista de Clientes Cadastrados -->
             <div class="card">
                 <h3>Clientes Cadastrados</h3>
+                
+                <!-- Campo de Filtro / Busca -->
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <input type="text" id="filtro-cliente" placeholder="🔍 Pesquisar por nome ou telefone..." oninput="carregarClientes()" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
                 <div id="lista-clientes" class="lista-container">
                     <!-- Os clientes cadastrados aparecerão aqui dinamicamente via JS -->
                 </div>
@@ -431,12 +443,14 @@ Atenciosamente, ${empresa}</p>
             <form onsubmit="realizarLogin(event)">
                 <div style="text-align: left; margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: bold; color: #444;">Usuário:</label>
-                    <input type="text" id="input-usuario-acesso" placeholder="Seu usuário" required style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <!-- Adicionado font-size: 16px para evitar o zoom automático do iOS -->
+                    <input type="text" id="input-usuario-acesso" placeholder="Seu usuário" required style="width: 100%; padding: 10px; font-size: 16px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="text-align: left; margin-bottom: 15px;">
                     <label style="font-size: 0.85rem; font-weight: bold; color: #444;">Senha:</label>
-                    <input type="password" id="input-senha-acesso" placeholder="Sua senha" required style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <!-- Adicionado font-size: 16px para evitar o zoom automático do iOS -->
+                    <input type="password" id="input-senha-acesso" placeholder="Sua senha" required style="width: 100%; padding: 10px; font-size: 16px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <button type="submit" style="width: 100%; padding: 11px; background: #c59b27; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem;">Entrar</button>
@@ -458,22 +472,22 @@ Atenciosamente, ${empresa}</p>
             <form onsubmit="salvarNovasCredenciais(event)">
                 <div style="text-align: left; margin-bottom: 10px;">
                     <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Senha Atual (para confirmar):</label>
-                    <input type="password" id="senha-atual" placeholder="Senha atual" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <input type="password" id="senha-atual" placeholder="Senha atual" required style="width: 100%; padding: 8px; font-size: 16px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="text-align: left; margin-bottom: 10px;">
                     <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Novo Usuário:</label>
-                    <input type="text" id="novo-usuario" placeholder="Novo nome de usuário" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <input type="text" id="novo-usuario" placeholder="Novo nome de usuário" required style="width: 100%; padding: 8px; font-size: 16px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="text-align: left; margin-bottom: 10px;">
                     <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Nova Senha:</label>
-                    <input type="password" id="senha-nova" placeholder="Nova senha" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <input type="password" id="senha-nova" placeholder="Nova senha" required style="width: 100%; padding: 8px; font-size: 16px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="text-align: left; margin-bottom: 15px;">
                     <label style="font-size: 0.8rem; font-weight: bold; color: #444;">Confirme a Nova Senha:</label>
-                    <input type="password" id="senha-confirma" placeholder="Confirme a nova senha" required style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    <input type="password" id="senha-confirma" placeholder="Confirme a nova senha" required style="width: 100%; padding: 8px; font-size: 16px; margin-top: 3px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <button type="submit" style="width: 100%; padding: 10px; background: #c59b27; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Salvar Alterações</button>

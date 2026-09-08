@@ -194,12 +194,13 @@ function salvarCliente(event) {
     const nome = document.getElementById("cliente-nome").value.trim();
     const telefone = document.getElementById("cliente-telefone").value.trim();
     const recorrencia = document.getElementById("cliente-recorrencia").value;
-    const aniversarioCompleto = document.getElementById("cliente-aniversario").value; // Ex: "1995-12-15"
-    const aniversario = aniversarioCompleto ? aniversarioCompleto.slice(5) : ""; // Salva apenas "12-15" (ignora o ano)
+    const genero = document.getElementById("cliente-genero").value; // <--- Novo campo
+    const aniversarioCompleto = document.getElementById("cliente-aniversario").value; 
+    const aniversario = aniversarioCompleto ? aniversarioCompleto.slice(5) : ""; 
     const clientePacote = document.getElementById("cliente-pacote").checked;
     
     const servicosPadrao = Array.from(document.querySelectorAll('input[name="cliente-servico"]:checked'))
-                              .map(el => el.value);
+                                .map(el => el.value);
 
     let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
 
@@ -208,10 +209,11 @@ function salvarCliente(event) {
         clientes = clientes.map(c => {
             if (c.id == Number(id)) {
                 return {
-                    ...c, // Mantém tudo o que já existe (incluindo saldoAtual, extrato, etc.)
+                    ...c,
                     nome,
                     telefone,
                     recorrencia,
+                    genero, // <--- Atualiza gênero
                     servicosPadrao,
                     clientePacote,
                     aniversario
@@ -226,23 +228,29 @@ function salvarCliente(event) {
             nome,
             telefone,
             recorrencia,
+            genero, // <--- Salva gênero (F ou M)
             servicosPadrao,
             clientePacote,
             aniversario,
-            saldoAtual: 0, // Inicializa zerado para novos
-            extrato: []    // Histórico vazio para novos
+            saldoAtual: 0,
+            extrato: []
         };
         clientes.push(novoCliente);
     }
 
     localStorage.setItem("clientes_studio", JSON.stringify(clientes));
     
-    // Limpar formulário, desmarcar checkboxes e recarregar lista
+    // Limpar formulário, redefinir gênero para 'F' e recarregar lista
     document.getElementById("form-cliente").reset();
     document.getElementById("cliente-id").value = "";
+    document.getElementById("cliente-genero").value = "F"; // <--- Reseta para o padrão
     document.getElementById("cliente-aniversario").value = "";
-    document.getElementById("cliente-pacote").checked = false; // <--- Adicionar esta linha
+    document.getElementById("cliente-pacote").checked = false;
     document.querySelectorAll('input[name="cliente-servico"]').forEach(el => el.checked = false);
+    
+    // Atualiza o label dinâmico do formulário
+    atualizarLabelServicosCliente("F");
+
     carregarClientes();
     carregarSelectClientesAgenda();
 }
@@ -252,18 +260,36 @@ function carregarClientes() {
     const container = document.getElementById("lista-clientes");
     if (!container) return;
 
-    const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+    let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
 
-    if (clientes.length === 0) {
-        container.innerHTML = `<p class="text-muted">Nenhum cliente cadastrado ainda.</p>`;
+    // Captura o valor do campo de busca e converte para minúsculas
+    const termoFiltro = document.getElementById("filtro-cliente") ? document.getElementById("filtro-cliente").value.toLowerCase() : "";
+
+    // Filtra a lista com base no nome ou no telefone
+    const clientesFiltrados = clientes.filter(c => {
+        const nomeMatch = c.nome && c.nome.toLowerCase().includes(termoFiltro);
+        const telMatch = c.telefone && c.telefone.toLowerCase().includes(termoFiltro);
+        return nomeMatch || telMatch;
+    });
+
+    if (clientesFiltrados.length === 0) {
+        container.innerHTML = `<p class="text-muted" style="text-align: center; padding: 20px;">Nenhum cliente encontrado.</p>`;
         return;
     }
 
-    container.innerHTML = clientes.map(c => `
+    // Opcional: Ordena alfabeticamente para facilitar a localização
+    clientesFiltrados.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    container.innerHTML = clientesFiltrados.map(c => {
+        // Define um gênero padrão 'F' caso o cliente seja antigo e não tenha o campo salvo
+        const generoCliente = c.genero || 'F';
+        const iconeGenero = generoCliente === 'M' ? '👨' : '👩';
+
+        return `
         <div class="item-card">
-            <!-- Linha 1: Nome do Cliente e Ações -->
+            <!-- Linha 1: Nome do Cliente, Ícone de Gênero e Ações -->
             <div class="item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong style="font-size: 1.1rem;">${c.nome}</strong>
+                <strong style="font-size: 1.1rem;">${iconeGenero} ${c.nome}</strong>
                 <div class="acoes-card" style="display: flex; gap: 4px;">
                     <button onclick="adicionarCreditoPrompt(${c.id})" class="btn-ico" title="Adicionar Crédito">💵</button>
                     <button onclick="verExtrato(${c.id})" class="btn-ico" title="Ver Extrato">📋</button>
@@ -297,7 +323,8 @@ function carregarClientes() {
                 </span>
             </div>
         </div>
-    `).join("");
+    `;
+    }).join("");
 }
 
 // Preencher formulário para edição
@@ -310,8 +337,12 @@ function editarCliente(id) {
         document.getElementById("cliente-nome").value = cliente.nome;
         document.getElementById("cliente-telefone").value = cliente.telefone;
         document.getElementById("cliente-recorrencia").value = cliente.recorrencia || "Nenhuma";
+        document.getElementById("cliente-genero").value = cliente.genero || "F"; // <--- Carrega gênero salvo
         document.getElementById("cliente-aniversario").value = cliente.aniversario ? `2024-${cliente.aniversario}` : "";
         document.getElementById("cliente-pacote").checked = !!cliente.clientePacote;
+        
+        // Atualiza o texto do label dinamicamente com base no gênero carregado
+        atualizarLabelServicosCliente(cliente.genero || "F");
         
         // Garantir que os checkboxes estejam carregados e marcar os salvos
         carregarCheckboxesServicosCliente();
@@ -322,6 +353,27 @@ function editarCliente(id) {
         }, 50);
         
         document.getElementById("form-cliente").scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Ouve a alteração no select de gênero para mudar o texto do label em tempo real
+document.addEventListener("DOMContentLoaded", () => {
+    const selectGenero = document.getElementById("cliente-genero");
+    if (selectGenero) {
+        selectGenero.addEventListener("change", (e) => {
+            atualizarLabelServicosCliente(e.target.value);
+        });
+    }
+});
+
+function atualizarLabelServicosCliente(genero) {
+    const label = document.getElementById("label-servicos-cliente");
+    if (label) {
+        if (genero === "M") {
+            label.textContent = "Serviços Padrão / Combo do Cliente:";
+        } else {
+            label.textContent = "Serviços Padrão / Combo da Cliente:";
+        }
     }
 }
 
@@ -987,12 +1039,16 @@ function concluirAgendamento(id) {
 
     const cliente = clientes.find(c => c.id == agendamento.clienteId);
     
-    // Identifica com segurança se é pacote (verifique qual propriedade seu cadastro usa: clientePacote, tipoCliente, etc.)
+    // Tratamento dinâmico de gênero
+    const genero = cliente ? (cliente.genero || 'F') : 'F';
+    const artigoCliente = genero === 'M' ? 'o cliente' : 'a cliente';
+    const termoClienteGen = genero === 'M' ? 'do cliente' : 'da cliente';
+    
     const ehPacote = cliente ? (cliente.clientePacote === true || cliente.tipoCliente === 'pacote' || cliente.pacote === true) : false;
     
     const msg = ehPacote 
-        ? "Esta é uma cliente de PACOTE. O valor será abatido do saldo." 
-        : "Esta é uma cliente que paga na hora. O serviço será registrado apenas no histórico.";
+        ? `Este é um pacote ${termoClienteGen}. O valor será abatido do saldo.` 
+        : `Este é atendimento para ${artigoCliente} que paga na hora. O serviço será registrado apenas no histórico.`;
 
     if (!confirm(`Confirmar execução de: ${agendamento.servicos.map(s => s.nome).join(', ')}?\n\n${msg}`)) return;
 
@@ -1001,7 +1057,6 @@ function concluirAgendamento(id) {
     const desc = `Serviço realizado em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
     const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
 
-    // Executa a movimentação centralizada pela função global (que já desconta o saldo se for DEBITO)
     if (typeof adicionarMovimentacaoCliente === 'function') {
         try {
             adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
@@ -1009,20 +1064,16 @@ function concluirAgendamento(id) {
             console.warn("Erro ao chamar adicionarMovimentacaoCliente:", e);
         }
     } else {
-        // Fallback caso a função global não esteja escopada corretamente
         console.error("Função adicionarMovimentacaoCliente não encontrada!");
     }
 
-    // Remove o agendamento da agenda e salva
     agendamentos = agendamentos.filter(a => a.id !== id);
     localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
     
-    // -> AQUI: Verifica se a cliente tem recorrência configurada para sugerir o próximo agendamento
     verificarRecorrenciaEAgendar(agendamento);
 
     alert("Atendimento concluído e registrado com sucesso!");
     
-    // Atualiza as telas se as funções existirem
     if (typeof carregarAgendamentos === 'function') carregarAgendamentos();
     if (typeof carregarClientes === 'function') carregarClientes();
 }
@@ -1311,33 +1362,34 @@ function executarAcaoAgendamento(tipoAcao) {
     }
 
     if (tipoAcao === 'faltou') {
-        if (!confirm("Deseja registrar que a cliente faltou sem aviso? O agendamento será removido da agenda.")) return;
-        
         let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
         const cliente = clientes.find(c => c.id === agendamento.clienteId);
+        
+        const genero = cliente ? (cliente.genero || 'F') : 'F';
+        const artigoCliente = genero === 'M' ? 'o cliente' : 'a cliente';
+        const termoClienteGen = genero === 'M' ? 'do cliente' : 'da cliente';
+
+        if (!confirm(`Deseja registrar que ${artigoCliente} faltou sem aviso? O agendamento será removido da agenda.`)) return;
+        
         const ehPacote = cliente ? cliente.clientePacote : false;
 
-        // Formata a data para o registro
         const dataFormatada = agendamento.data.split('-').reverse().join('/');
         const desc = `Falta sem aviso em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
         
-        // Se for pacote, debita o valor/saldo. Se não, registra apenas como histórico/aviso.
         const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
 
         if (typeof adicionarMovimentacaoCliente === 'function') {
             adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
         }
 
-        // Remove da agenda atual
         agendamentos.splice(agendamentoIndex, 1);
         localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
         
         fecharModalAcao();
 
-        // Verifica a recorrência também no caso de falta, se desejar reaproveitar
         verificarRecorrenciaEAgendar(agendamento);
 
-        alert(ehPacote ? "Falta registrada e valor debitado do pacote da cliente!" : "Falta registrada no histórico da cliente.");
+        alert(ehPacote ? `Falta registrada e valor debitado do pacote ${termoClienteGen}!` : `Falta registrada no histórico ${termoClienteGen}.`);
         carregarAgendamentos();
         carregarClientes();
         return;
@@ -1395,7 +1447,7 @@ function verificarRecorrenciaEAgendar(agendamento) {
     let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
     const cliente = clientes.find(c => c.id === agendamento.clienteId);
 
-    // Valida se a cliente existe e se tem regra de recorrência preenchida
+    // Valida se o cliente existe e se tem regra de recorrência preenchida
     if (!cliente || !cliente.recorrencia || cliente.recorrencia.trim() === "") {
         return;
     }
@@ -1405,9 +1457,12 @@ function verificarRecorrenciaEAgendar(agendamento) {
 
     const [ano, mes, dia] = proximaDataIso.split('-');
     const proximaDataFormatada = `${dia}/${mes}/${ano}`;
-    const nomeCliente = cliente.nome || "Cliente";
+    
+    // Tratamento dinâmico de gênero para o texto do alerta
+    const generoCliente = cliente.genero || 'F';
+    const termoCliente = generoCliente === 'M' ? 'do cliente' : 'da cliente';
 
-    const confirmarRecorrencia = confirm(`De acordo com o cadastro da cliente, a regra de recorrência consta como "${cliente.recorrencia}". Deseja deixar marcado para o próximo dia ${proximaDataFormatada} às ${agendamento.horario} h?`);
+    const confirmarRecorrencia = confirm(`De acordo com o cadastro ${termoCliente}, a regra de recorrência consta como "${cliente.recorrencia}". Deseja deixar marcado para o próximo dia ${proximaDataFormatada} às ${agendamento.horario} h?`);
 
     if (confirmarRecorrencia) {
         let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
@@ -1417,7 +1472,7 @@ function verificarRecorrenciaEAgendar(agendamento) {
             clienteId: agendamento.clienteId,
             data: proximaDataIso,
             horario: agendamento.horario,
-            servicos: [...agendamento.servicos], // Copia os serviços do atendimento atual
+            servicos: [...agendamento.servicos], 
             total: agendamento.total,
             status: 'Pendente'
         };
