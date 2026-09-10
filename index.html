@@ -38,9 +38,12 @@
                 <form id="form-agendamento" onsubmit="salvarAgendamento(event)">
                     <input type="hidden" id="agendamento-id">
 
-                    <!-- Seleção da Cliente -->
+                    <!-- Seleção da Cliente com Busca Rápida -->
                     <div class="form-group">
                         <label for="agenda-cliente">Cliente</label>
+                        <!-- Campo de input para filtrar o select em tempo real -->
+                        <input type="text" id="filtro-rapido-cliente" placeholder="🔍 Digite para filtrar a cliente..." oninput="filtrarSelectClientes(this.value)" style="margin-bottom: 6px; padding: 8px; font-size: 0.9rem; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border-color);">
+                        
                         <select id="agenda-cliente" required onchange="aoMudarClienteAgenda()">
                             <option value="">Selecione a cliente...</option>
                             <!-- Preenchido via JavaScript -->

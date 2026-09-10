@@ -579,14 +579,17 @@ function excluirServico(id) {
 
 // --- MÓDULO DE AGENDA E ATENDIMENTOS ---
 
-// Carregar clientes no select da agenda
+// Carregar clientes no select da agenda em ordem alfabética
 function carregarSelectClientesAgenda() {
     const select = document.getElementById("agenda-cliente");
     if (!select) return;
 
     const clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
     
-    // Mantém a primeira opção padrão e recria as demais
+    // Ordena as clientes alfabeticamente pelo nome (ignorando maiúsculas/minúsculas e acentos)
+    clientes.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+
+    // Mantém a primeira opção padrão e recria as demais ordenadas
     select.innerHTML = '<option value="">Selecione a cliente...</option>';
     
     clientes.forEach(c => {
@@ -595,6 +598,29 @@ function carregarSelectClientesAgenda() {
         option.textContent = c.nome;
         select.appendChild(option);
     });
+
+    // Limpa o campo de busca rápida sempre que o select for recarregado
+    const inputFiltroRapido = document.getElementById("filtro-rapido-cliente");
+    if (inputFiltroRapido) inputFiltroRapido.value = "";
+}
+
+// Função para filtrar as opções do select de clientes em tempo real por digitação
+function filtrarSelectClientes(termo) {
+    const select = document.getElementById("agenda-cliente");
+    if (!select) return;
+
+    const termoLower = termo.toLowerCase().trim();
+    const options = select.options;
+
+    for (let i = 1; i < options.length; i++) {
+        const textoOpcao = options[i].text.toLowerCase();
+        // Se o texto da opção inclui o termo digitado, exibe; caso contrário, oculta
+        if (textoOpcao.includes(termoLower)) {
+            options[i].style.display = "";
+        } else {
+            options[i].style.display = "none";
+        }
+    }
 }
 
 // Executado ao alterar a cliente na agenda
