@@ -85,7 +85,7 @@ function aplicarMascaraTelefone(input) {
 }
 
 // Adiciona um lançamento no extrato do cliente com limite de histórico
-function adicionarMovimentacaoCliente(clientId, tipo, valor, descricao) {
+function adicionarMovimentacaoCliente(clientId, tipo, valor, descricao, dataCustomizada = null) {
     let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
     
     clientes = clientes.map(c => {
@@ -98,11 +98,13 @@ function adicionarMovimentacaoCliente(clientId, tipo, valor, descricao) {
             } else if (tipo === 'DEBITO') {
                 c.saldoAtual -= valor;
             } 
-            // Se for 'HISTORICO', apenas registra no extrato sem alterar o saldo financeiro
+
+            // Usa a data customizada (do agendamento) se fornecida, senão pega a de hoje do sistema
+            const dataLancamento = dataCustomizada || new Date().toISOString().split('T')[0];
 
             // Cria o novo lançamento
             const novoLancamento = {
-                data: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+                data: dataLancamento, // YYYY-MM-DD
                 tipo: tipo, // 'CREDITO', 'DEBITO' ou 'HISTORICO'
                 valor: valor,
                 descricao: descricao
@@ -761,7 +763,7 @@ function atualizarTotalAgenda() {
     }
 }
 
-// Salvar ou Atualizar Agendamento com Confirmação e Limite de 200 Registros
+// Salvar ou Atualizar Agendamento com Confirmação e Limite de 600 Registros
 function salvarAgendamento(event) {
     event.preventDefault();
 
@@ -838,8 +840,8 @@ function salvarAgendamento(event) {
             status: 'Pendente'
         };
 
-        // Trava de segurança: Se já houver 200 ou mais, remove o mais antigo
-        if (agendamentos.length >= 200) {
+        // Trava de segurança: Se já houver 600 ou mais, remove o mais antigo
+        if (agendamentos.length >= 600) {
             agendamentos.shift(); 
         }
 
@@ -877,7 +879,13 @@ function carregarAgendamentos() {
     const avisoFiltro = document.getElementById("aviso-filtro-ativo");
 
     if (agendamentos.length === 0) {
-        container.innerHTML = `<p class="text-muted">Nenhum agendamento cadastrado ainda.</p>`;
+        container.innerHTML = `
+            <div style="text-align: center; padding: 15px 0;">
+                <span style="font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Receita</span>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-top: 2px;">R$ 0,00</div>
+            </div>
+            <p class="text-muted" style="margin-top: 15px;">Nenhum agendamento cadastrado ainda.</p>
+        `;
         if (avisoFiltro) avisoFiltro.style.display = "none";
         return;
     }
@@ -888,11 +896,16 @@ function carregarAgendamentos() {
 
     let agendamentosExibidos = [...agendamentos];
 
+    // Pega a data de hoje respeitando o fuso horário local
+    const hojeObj = new Date();
+    const anoLocal = hojeObj.getFullYear();
+    const mesLocal = String(hojeObj.getMonth() + 1).padStart(2, '0');
+    const diaLocal = String(hojeObj.getDate()).padStart(2, '0');
+    const dataHojeStr = `${anoLocal}-${mesLocal}-${diaLocal}`;
+
     if (dataFiltroSelecionada) {
-        // Se houver uma data selecionada, filtra estritamente por ela
         agendamentosExibidos = agendamentosExibidos.filter(ag => ag.data === dataFiltroSelecionada);
         
-        // Mostra o aviso visual de segurança para a gestora
         if (avisoFiltro) {
             avisoFiltro.style.display = "flex";
             const dataFmt = dataFiltroSelecionada.split('-').reverse().join('/');
@@ -900,59 +913,80 @@ function carregarAgendamentos() {
             if (spanData) spanData.textContent = dataFmt;
         }
     } else {
-        // Se não houver filtro, aplica o corte padrão de 7 dias para manter a tela limpa
-        const hoje = new Date();
-        const seteDiasAtras = new Date();
-        seteDiasAtras.setDate(hoje.getDate() - 7);
-
-        agendamentosExibidos = agendamentosExibidos.filter(ag => {
-            const dataAg = new Date(ag.data + 'T00:00:00');
-            return dataAg >= seteDiasAtras;
-        });
-
-        // Oculta o aviso de filtro ativo
+        agendamentosExibidos = agendamentosExibidos.filter(ag => ag.data === dataHojeStr);
         if (avisoFiltro) avisoFiltro.style.display = "none";
     }
 
-    // Inverte para o último cadastrado/recente ficar no topo
-    agendamentosExibidos.reverse();
+    // Calcula o valor total (receita) da data exibida, ignorando os agendamentos com status 'Falta'
+    const valorTotalDia = agendamentosExibidos.reduce((acc, ag) => {
+        if (ag.status === 'Falta') {
+            return acc; // Não soma se for falta
+        }
+        return acc + (ag.total || 0);
+    }, 0);
+    const valorFormatadoDia = valorTotalDia.toFixed(2).replace('.', ',');
+
+    // Monta o cabeçalho com o bloco de Receita estilo o print
+    let htmlCabecalho = `
+        <div style="text-align: center; padding: 10px 0 15px 0; border-bottom: 1px solid #eee; margin-bottom: 15px;">
+            <span style="font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Receita</span>
+            <div style="font-size: 1.6rem; font-weight: bold; color: #222; margin-top: 2px;">R$ ${valorFormatadoDia}</div>
+        </div>
+    `;
+
+    // Ordena cronologicamente: primeiro por data, depois por horário
+    agendamentosExibidos.sort((a, b) => {
+        if (a.data !== b.data) {
+            return a.data.localeCompare(b.data);
+        }
+        return a.horario.localeCompare(b.horario);
+    });
 
     if (agendamentosExibidos.length === 0) {
         const msgVazia = dataFiltroSelecionada 
             ? `Nenhum agendamento encontrado para a data ${dataFiltroSelecionada.split('-').reverse().join('/')}.` 
-            : "Sem agendamentos recentes (últimos 7 dias).";
+            : "Sem agendamentos para hoje.";
         
-        container.innerHTML = `<p class="text-muted">${msgVazia}</p>`;
+        container.innerHTML = htmlCabecalho + `<p class="text-muted" style="text-align: center;">${msgVazia}</p>`;
         return;
     }
 
-    container.innerHTML = agendamentosExibidos.map(ag => {
+    const htmlCards = agendamentosExibidos.map(ag => {
         const clienteObj = clientes.find(c => c.id === ag.clienteId);
         const nomeCliente = clienteObj ? clienteObj.nome : "Cliente não encontrada";
         const telefoneCliente = clienteObj ? clienteObj.telefone : "";
-        const dataFormatadaExibicao = ag.data.split('-').reverse().join('/');
+        const dataFormatadaExibicao = ag.data ? ag.data.split('-').reverse().join('/') : "";
+        const nomesServicosStr = ag.servicos ? ag.servicos.map(s => s.nome).join(', ') : "";
         
-        const nomesServicosStr = ag.servicos.map(s => s.nome).join(', ');
+        const isConfirmado = ag.status === 'Confirmado';
+        const isFalta = ag.status === 'Falta';
         
-        // Verifica se hoje é o aniversário da cliente com base na data do agendamento
+        let estiloCard = 'border-left: 4px solid #3b82f6; background-color: #f8fafc;'; 
+        let estiloCheckBtn = 'background: #eff6ff; border-radius: 4px;'; 
+
+        if (isConfirmado) {
+            estiloCard = 'border-left: 4px solid #22c55e; background-color: #f4fbf7;'; 
+            estiloCheckBtn = 'background: #d1fae5; border-radius: 4px;'; 
+        } else if (isFalta) {
+            estiloCard = 'border-left: 4px solid #ef4444; background-color: #fef2f2;'; 
+            estiloCheckBtn = 'background: #fee2e2; border-radius: 4px;'; 
+        }
+
         let iconeAniversario = "";
-        if (clienteObj && clienteObj.aniversario) {
+        if (clienteObj && clienteObj.aniversario && ag.data) {
             if (ag.data.slice(5) === clienteObj.aniversario) {
-                // Criamos o badge completo com o bolo para ficar bem elegante embaixo
                 iconeAniversario = '<span class="tempo-badge" style="background-color: #fff3e0; color: #e65100; margin-right: 4px;" title="Aniversariante do dia!">🎂</span>';
             }
         }
         
-        // Ícone SVG oficial do WhatsApp com alinhamento vertical corrigido para casar com os emojis
         const svgWhatsAppCard = `<svg viewBox="0 0 24 24" width="18" height="18" fill="#22c55e" style="display: inline-block; vertical-align: middle; margin-top: -1px;"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>`;
-        // Botão do WhatsApp integrado reaproveitando perfeitamente o motor central de templates
         const btnWhatsapp = `<button type="button" class="btn-ico" onclick="dispararWhatsappDireto('${telefoneCliente}', '${nomeCliente.replace(/'/g, "\\'")}', '${ag.data}', '${ag.horario}', '${nomesServicosStr.replace(/'/g, "\\'")}')" title="Enviar WhatsApp de Atendimento">${svgWhatsAppCard}</button>`;
         
         return `
-            <div class="item-card">
+            <div class="item-card" style="${estiloCard}">
                 <div>
-                    <div class="item-header">
-                        <strong>${nomeCliente}</strong>
+                    <div class="item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <strong style="font-size: 1rem;" title="${nomeCliente}">${nomeCliente}</strong>
                         <span class="tempo-badge" style="background-color: #fff3e5; color: #b8860b;">📅 ${dataFormatadaExibicao} às ${ag.horario}</span>
                     </div>
                     <div class="item-badges" style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">
@@ -963,7 +997,7 @@ function carregarAgendamentos() {
                         <div class="acoes-card" style="display: flex; gap: 4px; align-items: center;">
                             ${btnWhatsapp}
                             ${iconeAniversario}
-                            <button type="button" class="btn-ico" onclick="abrirModalAcao(${ag.id}, '${nomeCliente.parse ? '' : nomeCliente.replace(/'/g, "\\'")}', '${nomesServicosStr.replace(/'/g, "\\'")}')" title="Gerenciar Atendimento">✅</button>
+                            <button type="button" class="btn-ico" onclick="abrirModalAcao(${ag.id}, '${nomeCliente.replace(/'/g, "\\'")}', '${nomesServicosStr.replace(/'/g, "\\'")}')" title="Gerenciar Atendimento" style="${estiloCheckBtn}">✅</button>
                             <button type="button" class="btn-ico" onclick="abrirEdicaoAgendamento(${ag.id})" title="Editar Agendamento">✏️</button>
                             <button type="button" class="btn-ico" onclick="excluirAgendamento(${ag.id})" title="Excluir">🗑️</button>
                         </div>
@@ -972,6 +1006,8 @@ function carregarAgendamentos() {
             </div>
         `;
     }).join("");
+
+    container.innerHTML = htmlCabecalho + htmlCards;
 }
 
 // Função auxiliar para limpar o filtro rapidamente
@@ -1403,9 +1439,39 @@ function executarAcaoAgendamento(tipoAcao) {
     const agendamento = agendamentos[agendamentoIndex];
 
     if (tipoAcao === 'realizado') {
+        // 1. Marca como confirmado (borda/fundo verde) para manter no histórico do storage
+        agendamentos[agendamentoIndex].status = 'Confirmado';
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+        
         fecharModalAcao();
-        // Chama a função existente de conclusão que abate pacote ou registra histórico
-        concluirAgendamento(agendamento.id);
+
+        // 2. Executa a lógica de pacotes / histórico do cliente
+        let clientes = JSON.parse(localStorage.getItem("clientes_studio")) || [];
+        const cliente = clientes.find(c => c.id === agendamento.clienteId);
+        
+        const genero = cliente ? (cliente.genero || 'F') : 'F';
+        const termoClienteGen = genero === 'M' ? 'do cliente' : 'da cliente';
+        const ehPacote = cliente ? cliente.clientePacote : false;
+
+        // Pega a data YYYY-MM-DD direto do agendamento e converte de forma segura para DD/MM/AAAA
+        const partesData = agendamento.data.split('-');
+        const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+        
+        const desc = `Serviço realizado em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
+        
+        const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
+
+        if (typeof adicionarMovimentacaoCliente === 'function') {
+            adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc, agendamento.data);
+        }
+
+        // 3. Verifica a recorrência para sugerir o próximo agendamento
+        verificarRecorrenciaEAgendar(agendamento);
+
+        alert(ehPacote ? `Atendimento realizado! Valor debitado do pacote ${termoClienteGen}.` : `Atendimento realizado e registrado no histórico ${termoClienteGen}.`);
+        
+        carregarAgendamentos();
+        carregarClientes();
         return;
     }
 
@@ -1417,27 +1483,29 @@ function executarAcaoAgendamento(tipoAcao) {
         const artigoCliente = genero === 'M' ? 'o cliente' : 'a cliente';
         const termoClienteGen = genero === 'M' ? 'do cliente' : 'da cliente';
 
-        if (!confirm(`Deseja registrar que ${artigoCliente} faltou sem aviso? O agendamento será removido da agenda.`)) return;
+        if (!confirm(`Deseja registrar que ${artigoCliente} faltou sem aviso? O agendamento ficará marcado no histórico da agenda.`)) return;
         
         const ehPacote = cliente ? cliente.clientePacote : false;
 
-        const dataFormatada = agendamento.data.split('-').reverse().join('/');
+        const partesData = agendamento.data.split('-');
+        const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
         const desc = `Falta sem aviso em ${dataFormatada} - ${agendamento.servicos.map(s => s.nome).join(', ')}`;
         
         const tipoMov = ehPacote ? 'DEBITO' : 'HISTORICO';
 
         if (typeof adicionarMovimentacaoCliente === 'function') {
-            adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc);
+            adicionarMovimentacaoCliente(agendamento.clienteId, tipoMov, agendamento.total, desc, agendamento.data);
         }
 
-        agendamentos.splice(agendamentoIndex, 1);
+        // Mantém o agendamento no storage, mas atualiza o status para 'Falta' (borda vermelha)
+        agendamentos[agendamentoIndex].status = 'Falta';
         localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
         
         fecharModalAcao();
 
         verificarRecorrenciaEAgendar(agendamento);
 
-        alert(ehPacote ? `Falta registrada e valor debitado do pacote ${termoClienteGen}!` : `Falta registrada no histórico ${termoClienteGen}.`);
+        alert(ehPacote ? `Falta registrada, valor debitado do pacote ${termoClienteGen} e horário marcado como ocioso!` : `Falta registrada no histórico ${termoClienteGen} e horário marcado como ocioso.`);
         carregarAgendamentos();
         carregarClientes();
         return;
@@ -1454,9 +1522,10 @@ function executarAcaoAgendamento(tipoAcao) {
 
         if (!confirm(`Confirmar reagendamento para o dia ${novaData.split('-').reverse().join('/')} às ${novoHorario}?`)) return;
 
-        // Atualiza os dados do agendamento existente
+        // Atualiza os dados do agendamento existente e marca como confirmado (borda verde)
         agendamentos[agendamentoIndex].data = novaData;
         agendamentos[agendamentoIndex].horario = novoHorario;
+        agendamentos[agendamentoIndex].status = 'Pendente';
 
         localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
 
@@ -1464,6 +1533,20 @@ function executarAcaoAgendamento(tipoAcao) {
         alert("Agendamento reagendado com sucesso!");
         carregarAgendamentos();
         return;
+    }
+}
+
+// Alterna visualmente o status de confirmação do agendamento na lista do dia
+function alternarStatusAgendamento(id) {
+    let agendamentos = JSON.parse(localStorage.getItem("agendamentos_studio")) || [];
+    const index = agendamentos.findIndex(a => a.id == id);
+    
+    if (index !== -1) {
+        const statusAtual = agendamentos[index].status || 'Pendente';
+        agendamentos[index].status = statusAtual === 'Confirmado' ? 'Pendente' : 'Confirmado';
+        
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+        carregarAgendamentos();
     }
 }
 
@@ -1480,14 +1563,14 @@ function calcularProximaDataRecorrencia(dataAtualStr, regra) {
     } else if (regraLower.includes('mensal')) {
         dataObj.setMonth(dataObj.getMonth() + 1);
     } else {
-        return null; // Se não for nenhuma conhecida ou estiver vazia
+        return null; 
     }
 
     const novoAno = dataObj.getFullYear();
     const novoMes = String(dataObj.getMonth() + 1).padStart(2, '0');
     const novoDia = String(dataObj.getDate()).padStart(2, '0');
 
-    return `${novoAno}-${novoMes}-${novoMes ? '' : ''}${novoDia}`; // Formato YYYY-MM-DD
+    return `${novoAno}-${novoMes}-${novoDia}`;
 }
 
 // Função para verificar e sugerir o próximo agendamento recorrente
@@ -1525,8 +1608,8 @@ function verificarRecorrenciaEAgendar(agendamento) {
             status: 'Pendente'
         };
 
-        // Trava de segurança de 200 registros
-        if (agendamentos.length >= 200) {
+        // Trava de segurança de 600 registros
+        if (agendamentos.length >= 600) {
             agendamentos.shift();
         }
 
