@@ -373,6 +373,12 @@ nav.bottom-nav button svg {
     font-size: 0.9rem;
 }
 
+.modal-btn-confirmado-wpp {
+    background: #fff8e1;
+    color: #f57c00;
+    border: 1px solid #ffe082;
+}
+
 .modal-btn-realizado {
     background: #e8f5e9;
     color: #2e7d32;

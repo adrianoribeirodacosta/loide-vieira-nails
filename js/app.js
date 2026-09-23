@@ -960,6 +960,7 @@ function carregarAgendamentos() {
         
         const isConfirmado = ag.status === 'Confirmado';
         const isFalta = ag.status === 'Falta';
+        const isConfirmadoWpp = ag.status === 'ConfirmadoWpp';
         
         let estiloCard = 'border-left: 4px solid #3b82f6; background-color: #f8fafc;'; 
         let estiloCheckBtn = 'background: #eff6ff; border-radius: 4px;'; 
@@ -970,6 +971,9 @@ function carregarAgendamentos() {
         } else if (isFalta) {
             estiloCard = 'border-left: 4px solid #ef4444; background-color: #fef2f2;'; 
             estiloCheckBtn = 'background: #fee2e2; border-radius: 4px;'; 
+        }else if (isConfirmadoWpp) {
+            estiloCard = 'border-left: 4px solid #f97316; background-color: #fffaf5;'; // Laranja suave e borda laranja
+            estiloCheckBtn = 'background: #ffedd5; border-radius: 4px;'; 
         }
 
         let iconeAniversario = "";
@@ -1437,6 +1441,16 @@ function executarAcaoAgendamento(tipoAcao) {
     }
 
     const agendamento = agendamentos[agendamentoIndex];
+
+    if (tipoAcao === 'confirmado_wpp') {
+        agendamentos[agendamentoIndex].status = 'ConfirmadoWpp';
+        localStorage.setItem("agendamentos_studio", JSON.stringify(agendamentos));
+        
+        fecharModalAcao();
+        alert("Status atualizado: Cliente confirmou via WhatsApp!");
+        carregarAgendamentos();
+        return;
+    }
 
     if (tipoAcao === 'realizado') {
         // 1. Marca como confirmado (borda/fundo verde) para manter no histórico do storage
